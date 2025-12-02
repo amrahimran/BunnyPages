@@ -1,13 +1,26 @@
+// ignore_for_file: unused_import
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/splash_screen.dart';
 import 'pages/homepage.dart';
 import 'pages/login.dart';
+import 'package:provider/provider.dart';
+import 'providers/cart_provider.dart';
+import 'providers/wishlist_provider.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+void main() {
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => WishlistProvider()), // Add this
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

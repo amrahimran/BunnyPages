@@ -1,30 +1,134 @@
-import 'package:flutter/material.dart';
+// ignore_for_file: deprecated_member_use
 
-class CartPage extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/cart_provider.dart';
+import '../components/bottombar.dart';
+
+class CartPage extends StatelessWidget {
   const CartPage({super.key});
 
   @override
-  State<CartPage> createState() => _CartPageState();
-}
-
-class _CartPageState extends State<CartPage>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    final cartProvider = Provider.of<CartProvider>(context);
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    Color backgroundColor = isDarkMode ? const Color(0xFF121212) : Colors.white;
+    Color cardColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+    Color textColor = isDarkMode ? Colors.white : Colors.black;
+    Color accentColor = const Color(0xFF7dadc4);
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        title: Text(
+          'My Cart',
+          style: TextStyle(
+            color: accentColor,
+            fontFamily: 'Chewy',
+            fontSize: 25,
+          ),
+        ),
+      ),
+      body: cartProvider.items.isEmpty
+          ? Center(
+              child: Text(
+                'Your cart is empty',
+                style: TextStyle(color: textColor, fontSize: 18),
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    itemCount: cartProvider.items.length,
+                    itemBuilder: (context, index) {
+                      final cartItem = cartProvider.items.values.elementAt(index);
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              spreadRadius: 1,
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.asset(
+                              cartItem.product.image,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.error, size: 50),
+                            ),
+                          ),
+                          title: Text(
+                            cartItem.product.name,
+                            style: TextStyle(
+                                fontFamily: 'MontserratSemiBold',
+                                fontSize: 16,
+                                color: textColor),
+                          ),
+                          subtitle: Text(
+                            'Rs. ${cartItem.product.price} x ${cartItem.quantity} = Rs. ${cartItem.product.price * cartItem.quantity}',
+                            style: TextStyle(
+                                fontFamily: 'MontserratRegular', color: textColor),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete, color: accentColor),
+                            onPressed: () {
+                              cartProvider.removeFromCart(cartItem.product.id);
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // Non-functional for now
+                    },
+                    icon: const Icon(
+                      Icons.shopping_cart_checkout,
+                      size: 24,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Checkout',
+                      style: TextStyle(
+                        fontFamily: 'MontserratSemiBold',
+                        fontSize: 20,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                    ),
+                  ),
+                ),
+
+              ],
+            ),
+      bottomNavigationBar: const Bottombar(),
+      backgroundColor: backgroundColor,
+    );
   }
 }

@@ -42,7 +42,7 @@ class Bottombar extends StatelessWidget {
       elevation: 8,
       color: Colors.transparent,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF121212) : Colors.white,
           boxShadow: [

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:project/pages/cart.dart';
+import 'package:project/pages/wishlist.dart';
 
 class CustomBar extends StatelessWidget implements PreferredSizeWidget {
   const CustomBar({super.key});
@@ -25,7 +26,7 @@ class CustomBar extends StatelessWidget implements PreferredSizeWidget {
                 spreadRadius: 1,
                 blurRadius: 8,
                 offset: const Offset(0, 3),
-              )
+              ),
             ],
           ),
           child: Row(
@@ -41,20 +42,39 @@ class CustomBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
 
-              // Cart Button
-              IconButton(
-                icon: Icon(
-                  Icons.shopping_cart_rounded,
-                  size: 28,
-                  color:
-                      isDarkMode ? Colors.white : const Color(0xFF7dadc4),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => CartPage()),
-                  );
-                },
+              // Buttons (Wishlist & Cart)
+              Row(
+                children: [
+                  // Wishlist Button
+                  IconButton(
+                    icon: Icon(
+                      Icons.favorite, // heart icon
+                      size: 28,
+                      color: isDarkMode ? Colors.white : const Color(0xFF7dadc4),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const WishlistPage()),
+                      );
+                    },
+                  ),
+
+                  // Cart Button
+                  IconButton(
+                    icon: Icon(
+                      Icons.shopping_cart_rounded,
+                      size: 28,
+                      color: isDarkMode ? Colors.white : const Color(0xFF7dadc4),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CartPage()),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -64,5 +84,5 @@ class CustomBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(70);
+  Size get preferredSize => const Size.fromHeight(60);
 }

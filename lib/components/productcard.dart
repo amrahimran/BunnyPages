@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project/pages/details.dart';
 import '../models/product.dart';
 
 class ProductCard extends StatelessWidget {
@@ -10,7 +11,12 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // Handle product click if needed
+         Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DetailsPage(productId: product.id)
+        ),
+      );
       },
       child: Container(
         margin: const EdgeInsets.fromLTRB(12, 12, 6, 12),

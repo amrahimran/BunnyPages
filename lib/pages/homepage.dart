@@ -51,7 +51,7 @@ class _HomepageState extends State<HomePage> {
 
   Future<void> fetchProducts() async {
     try {
-      final url = Uri.parse('http://10.0.2.2:8000/api/products'); // adjust for your API
+      final url = Uri.parse('http://127.0.0.1:8000/api/products'); // adjust for your API
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -94,18 +94,23 @@ class _HomepageState extends State<HomePage> {
         MediaQuery.of(context).orientation == Orientation.landscape;
 
     // Build lists for each category
-    Map<String, List<Product>> categorizedProducts = {
-      'Vintage Collection':
-          allProducts.where((p) => p.category == 'vintage').toList(),
-      'Cute Notebooks':
-          allProducts.where((p) => p.category == 'cute').toList(),
-      'Journals':
-          allProducts.where((p) => p.category == 'journal').toList(),
-      'Eastern Beauty':
-          allProducts.where((p) => p.category == 'eastern').toList(),
-      'Other':
-          allProducts.where((p) => p.category == 'other').toList(),
-    };
+      Map<String, List<Product>> categorizedProducts = {
+    'Vintage Collection': allProducts
+        .where((p) => p.category == 'vintage' && p.id.startsWith('L'))
+        .toList(),
+    'Cute Notebooks': allProducts
+        .where((p) => p.category == 'cute' && p.id.startsWith('L'))
+        .toList(),
+    'Journals': allProducts
+        .where((p) => p.category == 'journal' && p.id.startsWith('L'))
+        .toList(),
+    'Eastern Beauty': allProducts
+        .where((p) => p.category == 'eastern' && p.id.startsWith('L'))
+        .toList(),
+    'Other': allProducts
+        .where((p) => p.category == 'other' && p.id.startsWith('L'))
+        .toList(),
+  };
 
     return SafeArea(
       child: Scaffold(
