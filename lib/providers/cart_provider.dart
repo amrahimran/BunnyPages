@@ -8,13 +8,32 @@ class CartProvider with ChangeNotifier {
 
   int get itemCount => _items.length;
 
+  /// ⭐ TOTAL AMOUNT (required by checkout.dart)
+
+  double get totalAmount {
+    double total = 0.0;
+    _items.forEach((_, item) {
+      total += item.product.price * item.quantity;
+    });
+    return total;
+  }
+  
   void addToCart(Product product, int quantity) {
     if (_items.containsKey(product.id)) {
       _items[product.id]!.quantity += quantity;
     } else {
-      _items[product.id] = CartItem(product: product, quantity: quantity);
+      _items[product.id] =
+          CartItem(product: product, quantity: quantity);
     }
     notifyListeners();
+  }
+
+  /// ⭐ UPDATE QUANTITY (optional)
+  void updateQuantity(String productId, int newQuantity) {
+    if (_items.containsKey(productId)) {
+      _items[productId]!.quantity = newQuantity;
+      notifyListeners();
+    }
   }
 
   void removeFromCart(String productId) {

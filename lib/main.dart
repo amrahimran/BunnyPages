@@ -8,13 +8,16 @@ import 'pages/login.dart';
 import 'package:provider/provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/wishlist_provider.dart';
+import 'package:project/providers/orders_provider.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(create: (_) => WishlistProvider()), // Add this
+        ChangeNotifierProvider(create: (_) => WishlistProvider()), 
+        ChangeNotifierProvider(create: (_) => OrderProvider()),
+        
       ],
       child: const MyApp(),
     ),

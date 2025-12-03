@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 import '../components/bottombar.dart';
+import '../pages/checkout.dart';  
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
@@ -11,6 +12,7 @@ class CartPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
+
     bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     Color backgroundColor = isDarkMode ? const Color(0xFF121212) : Colors.white;
     Color cardColor = isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
@@ -44,9 +46,12 @@ class CartPage extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     itemCount: cartProvider.items.length,
                     itemBuilder: (context, index) {
-                      final cartItem = cartProvider.items.values.elementAt(index);
+                      final cartItem =
+                          cartProvider.items.values.elementAt(index);
+
                       return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(15),
@@ -60,7 +65,8 @@ class CartPage extends StatelessWidget {
                           ],
                         ),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: Image.asset(
@@ -68,21 +74,25 @@ class CartPage extends StatelessWidget {
                               width: 60,
                               height: 60,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
+                              errorBuilder: (context, error, _) =>
                                   const Icon(Icons.error, size: 50),
                             ),
                           ),
                           title: Text(
                             cartItem.product.name,
                             style: TextStyle(
-                                fontFamily: 'MontserratSemiBold',
-                                fontSize: 16,
-                                color: textColor),
+                              fontFamily: 'MontserratSemiBold',
+                              fontSize: 16,
+                              color: textColor,
+                            ),
                           ),
                           subtitle: Text(
-                            'Rs. ${cartItem.product.price} x ${cartItem.quantity} = Rs. ${cartItem.product.price * cartItem.quantity}',
+                            'Rs. ${cartItem.product.price} x ${cartItem.quantity} = '
+                            'Rs. ${cartItem.product.price * cartItem.quantity}',
                             style: TextStyle(
-                                fontFamily: 'MontserratRegular', color: textColor),
+                              fontFamily: 'MontserratRegular',
+                              color: textColor,
+                            ),
                           ),
                           trailing: IconButton(
                             icon: Icon(Icons.delete, color: accentColor),
@@ -95,18 +105,24 @@ class CartPage extends StatelessWidget {
                     },
                   ),
                 ),
+
+                // ---- CHECKOUT BUTTON ----
                 Container(
                   padding: const EdgeInsets.all(16),
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      // Non-functional for now
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CheckoutPage(
+                            cartItems: cartProvider.items.values.toList(),   // send list of cart items
+                          ),
+                        ),
+                      );
                     },
-                    icon: const Icon(
-                      Icons.shopping_cart_checkout,
-                      size: 24,
-                      color: Colors.white,
-                    ),
+                    icon: const Icon(Icons.shopping_cart_checkout,
+                        size: 24, color: Colors.white),
                     label: const Text(
                       'Checkout',
                       style: TextStyle(
@@ -124,7 +140,6 @@ class CartPage extends StatelessWidget {
                     ),
                   ),
                 ),
-
               ],
             ),
       bottomNavigationBar: const Bottombar(),

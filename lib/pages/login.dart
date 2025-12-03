@@ -35,15 +35,13 @@ class _LoginState extends State<Login> {
   @override
   void initState() {
     super.initState();
-    _checkExistingToken();
+    _checkLoginStatus();
   }
 
-  /// If token exists → user already logged in
-  Future<void> _checkExistingToken() async {
+  Future<void> _checkLoginStatus() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('token');
-
-    if (token != null && token.isNotEmpty) {
+    bool loggedIn = prefs.getBool('isLoggedIn') ?? false;
+    if (loggedIn) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),
@@ -51,7 +49,11 @@ class _LoginState extends State<Login> {
     }
   }
 
-  /// LOGIN FUNCTION (UPDATED FOR LARAVEL SANCTUM)
+  Future<void> _saveLoginState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
+  }
+
   Future<void> login() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -62,22 +64,20 @@ class _LoginState extends State<Login> {
 
       var response = await http.post(
         url,
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
+        headers: {"Accept": "application/json"},
+        body: {
+          'email': emailController.text.trim(),
+          'password': passwordController.text.trim(),
         },
-        body: jsonEncode({
-          "email": emailController.text.trim(),
-          "password": passwordController.text.trim(),
-        }),
       );
 
       setState(() => isLoading = false);
 
-      var data = jsonDecode(response.body);
+      var data = json.decode(response.body);
 
-      // SUCCESS → TOKEN RECEIVED
+      // SUCCESS (200)
       if (response.statusCode == 200 && data['token'] != null) {
+        await _saveLoginState();
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
 
@@ -94,11 +94,10 @@ class _LoginState extends State<Login> {
             MaterialPageRoute(builder: (context) => const HomePage()),
           );
         });
-
         return;
       }
 
-      // CREDENTIALS WRONG (422)
+      // Laravel 422 validation (wrong email/pass)
       if (response.statusCode == 422) {
         QuickAlert.show(
           context: context,
@@ -147,7 +146,7 @@ class _LoginState extends State<Login> {
               ),
               const SizedBox(height: 16),
 
-              // EMAIL
+              /// EMAIL
               TextFormField(
                 controller: emailController,
                 decoration: const InputDecoration(
@@ -169,7 +168,7 @@ class _LoginState extends State<Login> {
 
               const SizedBox(height: 16),
 
-              // PASSWORD
+              /// PASSWORD
               TextFormField(
                 controller: passwordController,
                 obscureText: true,
@@ -185,7 +184,7 @@ class _LoginState extends State<Login> {
 
               const SizedBox(height: 40),
 
-              // LOGIN BUTTON
+              /// LOGIN BUTTON
               isLoading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
@@ -214,7 +213,6 @@ class _LoginState extends State<Login> {
 
               const SizedBox(height: 20),
 
-              // SIGNUP LINK
               GestureDetector(
                 onTap: () {
                   Navigator.push(
