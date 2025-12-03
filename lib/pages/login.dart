@@ -81,6 +81,13 @@ class _LoginState extends State<Login> {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
 
+        // Save user info for reviews
+        if (data['user'] != null) {
+          await prefs.setString('userId', data['user']['id'].toString());
+          await prefs.setString(
+              'userName', data['user']['name'] ?? data['user']['email']);
+        }
+
         QuickAlert.show(
           context: context,
           type: QuickAlertType.success,

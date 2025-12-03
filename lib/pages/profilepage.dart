@@ -23,7 +23,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? userData;
   bool isLoading = true;
   String errorMsg = '';
-  String phoneNumber = ''; // local phone number
+  // String phoneNumber = ''; // local phone number
 
   String get baseUrl {
     if (kIsWeb) return 'http://127.0.0.1:8000';
@@ -49,7 +49,7 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
-      phoneNumber = prefs.getString('phone') ?? ''; // fetch phone locally
+      //phoneNumber = prefs.getString('phone') ?? ''; // fetch phone locally
 
       if (token.isEmpty) {
         setState(() {
@@ -101,14 +101,14 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> updateUserData(String name, String email, String phone, String? password) async {
+  Future<void> updateUserData(String name, String email, String? password) async {
     setState(() => isLoading = true);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
 
       // Save phone locally
-      await prefs.setString('phone', phone);
+     //
 
       final url = Uri.parse('$baseUrl/api/user/update'); // backend only for name/email/password
 
@@ -159,7 +159,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showEditProfileDialog() {
     final nameController = TextEditingController(text: userData?['name'] ?? '');
     final emailController = TextEditingController(text: userData?['email'] ?? '');
-    final phoneController = TextEditingController(text: phoneNumber);
+    //final phoneController = TextEditingController(text: phoneNumber);
     final passwordController = TextEditingController();
 
     showDialog(
@@ -172,7 +172,7 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
               TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
-              TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone')),
+              //TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone')),
               TextField(controller: passwordController, decoration: const InputDecoration(labelText: 'New Password'), obscureText: true),
             ],
           ),
@@ -198,7 +198,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               String name = nameController.text.trim();
               String email = emailController.text.trim();
-              String phone = phoneController.text.trim();
+              //String phone = phoneController.text.trim();
               String password = passwordController.text.trim();
 
               // Validation
@@ -210,17 +210,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Enter a valid email.');
                 return;
               }
-              if (phone.isEmpty || !RegExp(r'^\d+$').hasMatch(phone)) {
-                QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Enter a valid phone number.');
-                return;
-              }
+              // if (phone.isEmpty || !RegExp(r'^\d+$').hasMatch(phone)) {
+              //   QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Enter a valid phone number.');
+              //   return;
+              // }
               if (password.isNotEmpty && password.length < 6) {
                 QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Password must be at least 6 characters.');
                 return;
               }
 
               Navigator.pop(context);
-              updateUserData(name, email, phone, password.isEmpty ? null : password);
+              updateUserData(name, email, password.isEmpty ? null : password);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7dadc4), // button background
@@ -328,14 +328,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildInfoColumn() {
     final email = userData?['email'] ?? 'Not available';
-    final phone = phoneNumber.isNotEmpty ? phoneNumber : 'Not set'; // use local phone
+    //final phone = phoneNumber.isNotEmpty ? phoneNumber : 'Not set'; // use local phone
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildInfoText("Email", email),
         const SizedBox(height: 15),
-        _buildInfoText("Phone", phone),
+        // _buildInfoText("Phone", phone),
       ],
     );
   }

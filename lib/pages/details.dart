@@ -6,13 +6,15 @@ import 'package:project/components/custombar.dart';
 import 'package:provider/provider.dart';
 import 'package:project/components/bottombar.dart';
 import 'package:project/models/product.dart';
-import 'package:project/pages/cart.dart';
 import 'package:project/providers/cart_provider.dart';
 import 'package:project/providers/wishlist_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'package:quickalert/quickalert.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 class DetailsPage extends StatefulWidget {
   final String productId;
@@ -28,6 +30,18 @@ class _DetailsPageState extends State<DetailsPage> {
   bool isLoading = true;
   int quantity = 1;
 
+  // Firestore
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  late CollectionReference reviewsCollection;
+
+  // Review input
+  final TextEditingController _reviewController = TextEditingController();
+  int _rating = 0;
+
+  // User info (from API / SharedPreferences)
+  Map<String, dynamic>? userData;
+  String phoneNumber = '';
+
   String get baseUrl {
     if (kIsWeb) return 'http://127.0.0.1:8000';
     try {
@@ -40,7 +54,47 @@ class _DetailsPageState extends State<DetailsPage> {
   @override
   void initState() {
     super.initState();
+    fetchUserData(); // fetch logged-in user details
+    reviewsCollection = _firestore
+        .collection('product_reviews')
+        .doc(widget.productId)
+        .collection('reviews');
     fetchProductDetails(widget.productId);
+  }
+
+  // Fetch user details like ProfilePage
+  Future<void> fetchUserData() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      phoneNumber = prefs.getString('phone') ?? '';
+
+      if (token.isEmpty) return;
+
+      final url = Uri.parse('$baseUrl/api/user');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        Map<String, dynamic>? user;
+        if (jsonData is Map<String, dynamic>) {
+          if (jsonData.containsKey('user') && jsonData['user'] is Map) {
+            user = Map<String, dynamic>.from(jsonData['user']);
+          } else if (jsonData.containsKey('data') && jsonData['data'] is Map) {
+            user = Map<String, dynamic>.from(jsonData['data']);
+          } else {
+            user = Map<String, dynamic>.from(jsonData);
+          }
+        }
+        setState(() => userData = user);
+      }
+    } catch (_) {}
   }
 
   Future<void> fetchProductDetails(String productId) async {
@@ -125,6 +179,128 @@ class _DetailsPageState extends State<DetailsPage> {
     }
   }
 
+  // Submit review using API user details (no FirebaseAuth)
+  Future<void> submitReview() async {
+    if (_rating == 0 || _reviewController.text.trim().isEmpty) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: 'Please provide a rating and review',
+      );
+      return;
+    }
+
+    final userName = userData?['name'] ?? userData?['email'] ?? 'Anonymous';
+    final userId = userData?['id']?.toString() ?? '';
+
+    await reviewsCollection.add({
+      'rating': _rating,
+      'review': _reviewController.text.trim(),
+      'timestamp': FieldValue.serverTimestamp(),
+      'userId': userId,
+      'userName': userName,
+    });
+
+    _reviewController.clear();
+    setState(() => _rating = 0);
+
+    QuickAlert.show(
+      context: context,
+      type: QuickAlertType.success,
+      text: 'Review submitted successfully!',
+    );
+  }
+
+  Widget buildReviewsSection() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: reviewsCollection.orderBy('timestamp', descending: true).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+
+        final reviews = snapshot.data!.docs;
+        if (reviews.isEmpty) return const Text('No reviews yet.');
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: reviews.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final rating = data['rating'] ?? 0;
+            final review = data['review'] ?? '';
+            final userName = data['userName'] ?? 'Anonymous';
+            final userId = data['userId'] ?? '';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              child: ListTile(
+                leading: Icon(Icons.star, color: Colors.amber),
+                title: Text('$rating / 5'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(review),
+                    const SizedBox(height: 4),
+                    Text('by $userName', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+                trailing: userData != null && userData!['id']?.toString() == userId
+                    ? IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          await reviewsCollection.doc(doc.id).delete();
+                          QuickAlert.show(
+                            context: context,
+                            type: QuickAlertType.success,
+                            text: 'Review deleted successfully!',
+                          );
+                        },
+                      )
+                    : null,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget buildRatingInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Rate this product:', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        Row(
+          children: List.generate(5, (index) {
+            final starIndex = index + 1;
+            return IconButton(
+              onPressed: () => setState(() => _rating = starIndex),
+              icon: Icon(_rating >= starIndex ? Icons.star : Icons.star_border, color: Colors.amber),
+            );
+          }),
+        ),
+        TextField(
+          controller: _reviewController,
+          decoration: const InputDecoration(
+            hintText: 'Write your review...',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          minLines: 1,
+          maxLines: 3,
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: submitReview,
+            child: const Text('Submit Review'),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -133,7 +309,6 @@ class _DetailsPageState extends State<DetailsPage> {
 
     final cartProvider = Provider.of<CartProvider>(context);
     final wishlistProvider = Provider.of<WishlistProvider>(context);
-
     final possibleColors = ['BLACK', 'PINK', 'BLUE', 'GREEN'];
 
     return Scaffold(
@@ -141,21 +316,13 @@ class _DetailsPageState extends State<DetailsPage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : selectedProduct == null
-              ? Center(
-                  child: Text(
-                    "Product not found",
-                    style: TextStyle(color: textColor),
-                  ),
-                )
+              ? Center(child: Text("Product not found", style: TextStyle(color: textColor)))
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-
-                      // -----------------------------
                       // PRODUCT IMAGE
-                      // -----------------------------
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: Image.asset(
@@ -165,71 +332,37 @@ class _DetailsPageState extends State<DetailsPage> {
                           fit: BoxFit.cover,
                         ),
                       ),
-
                       const SizedBox(height: 25),
-
-                      // -----------------------------
                       // NAME + WISHLIST
-                      // -----------------------------
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Text(
                               selectedProduct!.name,
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
+                              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: textColor),
                             ),
                           ),
-
                           IconButton(
                             icon: Icon(
-                              wishlistProvider.isInWishlist(selectedProduct!)
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
+                              wishlistProvider.isInWishlist(selectedProduct!) ? Icons.favorite : Icons.favorite_border,
                               color: accentColor,
                               size: 30,
                             ),
-                            onPressed: () {
-                              wishlistProvider.toggleWishlist(selectedProduct!);
-                            },
+                            onPressed: () => wishlistProvider.toggleWishlist(selectedProduct!),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 6),
-
-                      // -----------------------------
-                      // PRICE (NEW LOCATION)
-                      // -----------------------------
-                      Text(
-                        'Rs. ${selectedProduct!.price}',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: accentColor,
-                        ),
-                      ),
-
+                      // PRICE
+                      Text('Rs. ${selectedProduct!.price}',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: accentColor)),
                       const SizedBox(height: 25),
-
-                      // -----------------------------
                       // DESCRIPTION
-                      // -----------------------------
-                      Text(
-                        selectedProduct!.description,
-                        style: TextStyle(fontSize: 16, color: textColor.withOpacity(0.85)),
-                      ),
-
+                      Text(selectedProduct!.description, style: TextStyle(fontSize: 16, color: textColor.withOpacity(0.85))),
                       const SizedBox(height: 40),
-
-                      // -----------------------------
                       // SIZE SELECTOR
-                      // -----------------------------
-                      if (selectedProduct!.category != 'other') ...[
+                      if (selectedProduct!.category != 'other')
                         Center(
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -240,27 +373,18 @@ class _DetailsPageState extends State<DetailsPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 45),
-                      ],
-
-                      // -----------------------------
+                      if (selectedProduct!.category != 'other') const SizedBox(height: 45),
                       // COLOR SELECTOR
-                      // -----------------------------
-                      if (selectedProduct!.id.contains('C')) ...[
+                      if (selectedProduct!.id.contains('C'))
                         Center(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
-                                'Colors:',
-                                style: TextStyle(
-                                    fontFamily: 'MontserratSemiBold', fontSize: 16),
-                              ),
+                              const Text('Colors:', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 16)),
                               const SizedBox(width: 14),
                               Row(
                                 children: possibleColors.map((c) {
-                                  final isSelected =
-                                      selectedProduct!.color.toUpperCase() == c;
+                                  final isSelected = selectedProduct!.color.toUpperCase() == c;
                                   return GestureDetector(
                                     onTap: () => switchColor(c),
                                     child: Container(
@@ -270,11 +394,7 @@ class _DetailsPageState extends State<DetailsPage> {
                                       decoration: BoxDecoration(
                                         color: _colorFromString(c),
                                         shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color:
-                                              isSelected ? accentColor : Colors.grey,
-                                          width: 2,
-                                        ),
+                                        border: Border.all(color: isSelected ? accentColor : Colors.grey, width: 2),
                                       ),
                                     ),
                                   );
@@ -283,50 +403,28 @@ class _DetailsPageState extends State<DetailsPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 35),
-                      ],
-
-                      // -----------------------------
+                      if (selectedProduct!.id.contains('C')) const SizedBox(height: 35),
                       // QUANTITY + ADD TO CART
-                      // -----------------------------
                       Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Quantity counter
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(25),
-                              ),
+                              decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(25)),
                               child: Row(
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.remove),
-                                    onPressed: () {
-                                      if (quantity > 1) setState(() => quantity--);
-                                    },
-                                  ),
-                                  Text(
-                                    quantity.toString(),
-                                    style: TextStyle(
-                                        fontSize: 18, color: textColor),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.add),
-                                    onPressed: () => setState(() => quantity++),
-                                  ),
+                                  IconButton(icon: const Icon(Icons.remove), onPressed: () => setState(() { if (quantity > 1) quantity--; })),
+                                  Text(quantity.toString(), style: TextStyle(fontSize: 18, color: textColor)),
+                                  IconButton(icon: const Icon(Icons.add), onPressed: () => setState(() => quantity++)),
                                 ],
                               ),
                             ),
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 35),
-
-                      // Add to Cart button
+                      // ADD TO CART BUTTON
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -342,17 +440,15 @@ class _DetailsPageState extends State<DetailsPage> {
                             backgroundColor: accentColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 18),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                           ),
-                          child: const Text(
-                            'Add To Cart',
-                            style: TextStyle(
-                                fontFamily: 'MontserratSemiBold', fontSize: 18),
-                          ),
+                          child: const Text('Add To Cart', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 18)),
                         ),
                       ),
+                      const SizedBox(height: 35),
+                      // REVIEW & RATINGS
+                      buildRatingInput(),
+                      buildReviewsSection(),
                     ],
                   ),
                 ),
@@ -362,19 +458,14 @@ class _DetailsPageState extends State<DetailsPage> {
 
   Widget _sizeButton(String label, Color accentColor) {
     return ElevatedButton(
-      onPressed: () => switchSize(label == 'A5' ? 'A5' : 'B5'),
+      onPressed: () => switchSize(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: accentColor,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.fromLTRB(32, 14, 32, 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(25),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(fontSize: 18, fontFamily: 'MontserratRegular'),
-      ),
+      child: Text(label, style: const TextStyle(fontSize: 18, fontFamily: 'MontserratRegular')),
     );
   }
 }

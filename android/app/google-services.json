@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "848035100060",
+    "project_id": "bunnypages-ce5a4",
+    "storage_bucket": "bunnypages-ce5a4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:848035100060:android:9914bc72aa21a2841b4459",
+        "android_client_info": {
+          "package_name": "com.amrah.bunnypages"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-ESX63ZQZ9ykzlZS5ZLVSUl1K75ZWPcg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
