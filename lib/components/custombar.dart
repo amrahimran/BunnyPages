@@ -38,7 +38,7 @@ class CustomBar extends StatelessWidget implements PreferredSizeWidget {
                 style: TextStyle(
                   fontFamily: 'Chewy',
                   fontSize: 27,
-                  color: isDarkMode ? Colors.white : const Color(0xFF7dadc4),
+                  color: isDarkMode ? Colors.grey : const Color(0xFF7dadc4),
                 ),
               ),
 
@@ -50,7 +50,7 @@ class CustomBar extends StatelessWidget implements PreferredSizeWidget {
                     icon: Icon(
                       Icons.favorite, // heart icon
                       size: 28,
-                      color: isDarkMode ? Colors.white : const Color(0xFF7dadc4),
+                      color: isDarkMode ? Colors.grey : const Color(0xFF7dadc4),
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -65,7 +65,7 @@ class CustomBar extends StatelessWidget implements PreferredSizeWidget {
                     icon: Icon(
                       Icons.shopping_cart_rounded,
                       size: 28,
-                      color: isDarkMode ? Colors.white : const Color(0xFF7dadc4),
+                      color: isDarkMode ? Colors.grey : const Color(0xFF7dadc4),
                     ),
                     onPressed: () {
                       Navigator.push(

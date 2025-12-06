@@ -12,6 +12,8 @@ import '../providers/cart_provider.dart';
 import '../providers/orders_provider.dart';
 import '../components/custombar.dart';
 import '../components/bottombar.dart';
+import 'package:project/services/connectivity_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class CheckoutPage extends StatefulWidget {
   final List<CartItem> cartItems;
@@ -30,11 +32,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String paymentMethod = "Cash on Delivery";
   bool isFetchingLocation = false;
 
+  final ValueNotifier<bool> _isOnline = ValueNotifier<bool>(true);
+
   @override
   void initState() {
     super.initState();
     loadPhone();
     fetchLocation(); // Auto fetch location on page load
+
+    final connectivityService =
+        Provider.of<ConnectivityService>(context, listen: false);
+
+    connectivityService.connectivityStream.listen((result) async {
+      bool online = result != ConnectivityResult.none
+          ? await _checkActualInternet()
+          : false;
+      _isOnline.value = online;
+    });
+  }
+
+  Future<bool> _checkActualInternet() async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://www.google.com'))
+          .timeout(const Duration(seconds: 5));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   loadPhone() async {
@@ -47,11 +72,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     prefs.setString("phone", phoneController.text.trim());
   }
 
-  // Reverse geocoding for Web using Nominatim or proxy
   Future<String> getAddressFromCoordinatesWeb(double lat, double lng) async {
     try {
       final url = kIsWeb
-          ? 'http://localhost:3000/reverse?lat=$lat&lon=$lng' // Use your Node.js proxy here
+          ? 'http://localhost:3000/reverse?lat=$lat&lon=$lng'
           : 'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng';
 
       final response = await http.get(
@@ -67,7 +91,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     } catch (e) {
       print("Nominatim error: $e");
     }
-    return "$lat, $lng"; // fallback
+    return "$lat, $lng";
   }
 
   Future<void> fetchLocation() async {
@@ -97,7 +121,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
       String address = "";
 
       if (!kIsWeb) {
-        // Mobile: use placemarkFromCoordinates
         List<Placemark> placemarks = await placemarkFromCoordinates(
           position.latitude,
           position.longitude,
@@ -110,7 +133,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
           cityController.text = p.locality ?? "";
         }
       } else {
-        // Web: use proxy or Nominatim
         address =
             await getAddressFromCoordinatesWeb(position.latitude, position.longitude);
       }
@@ -137,9 +159,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
       (prev, item) => prev + item.product.price * item.quantity,
     );
 
-    final blueTheme = Color(0xFF7dadc4);
+    final Color blueTheme = const Color(0xFF7dadc4);
+    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final Color cardColor = isDarkMode ? const Color(0xFF1E1E2C) : Colors.white;
+    final Color bgColor = isDarkMode ? const Color(0xFF121212) : const Color(0xFFF6F8FA);
+    final Color textColor = isDarkMode ? Colors.white : Colors.black;
+    final Color hintColor = isDarkMode ? Colors.white54 : Colors.grey;
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: CustomBar(),
       bottomNavigationBar: Bottombar(),
       body: SingleChildScrollView(
@@ -147,17 +175,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Connectivity banner
+            ValueListenableBuilder<bool>(
+              valueListenable: _isOnline,
+              builder: (context, isOnline, _) {
+                return isOnline
+                    ? const SizedBox.shrink()
+                    : Container(
+                        color: Colors.red,
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        child: const Text(
+                          'No Internet Connection',
+                          style: TextStyle(color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+              },
+            ),
+            SizedBox(height: 10),
+
             Text("Order Summary",
                 style: TextStyle(
                     fontSize: 22, fontWeight: FontWeight.bold, color: blueTheme)),
             SizedBox(height: 15),
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardColor,
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: isDarkMode ? Colors.black26 : Colors.black.withOpacity(0.05),
                     blurRadius: 6,
                     offset: Offset(0, 3),
                   ),
@@ -185,15 +233,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         Expanded(
                           child: Text(
                             item.product.name,
-                            style: TextStyle(fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500, color: textColor),
                           ),
                         ),
-                        Text("x${item.quantity}"),
+                        Text("x${item.quantity}", style: TextStyle(color: textColor)),
                         SizedBox(width: 10),
                         Text(
                           "Rs ${(item.product.price * item.quantity).toStringAsFixed(2)}",
-                          style:
-                              TextStyle(fontWeight: FontWeight.bold, color: blueTheme),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, color: blueTheme),
                         ),
                       ],
                     ),
@@ -201,36 +250,45 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 }).toList(),
               ),
             ),
-            Divider(height: 30, thickness: 1.2),
+            Divider(height: 30, thickness: 1.2, color: isDarkMode ? Colors.white24 : Colors.grey),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Total:", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text("Total:",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
                 Text("Rs ${totalPrice.toStringAsFixed(2)}",
                     style: TextStyle(
                         fontSize: 20, fontWeight: FontWeight.bold, color: blueTheme)),
               ],
             ),
             SizedBox(height: 25),
-            Text("Phone Number", style: TextStyle(fontSize: 16)),
+            Text("Phone Number", style: TextStyle(fontSize: 16, color: textColor)),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 hintText: "Enter phone number",
+                hintStyle: TextStyle(color: hintColor),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
               ),
               onChanged: (_) => savePhone(),
             ),
             SizedBox(height: 20),
-            Text("Address", style: TextStyle(fontSize: 16)),
+            Text("Address", style: TextStyle(fontSize: 16, color: textColor)),
             Stack(
               children: [
                 TextField(
                   controller: addressController,
+                  style: TextStyle(color: textColor),
                   decoration: InputDecoration(
                     hintText: "Enter address",
+                    hintStyle: TextStyle(color: hintColor),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    filled: true,
+                    fillColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
                   ),
                 ),
                 if (isFetchingLocation)
@@ -240,32 +298,42 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     child: SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: blueTheme,
+                      ),
                     ),
                   ),
               ],
             ),
             SizedBox(height: 20),
-            Text("City", style: TextStyle(fontSize: 16)),
+            Text("City", style: TextStyle(fontSize: 16, color: textColor)),
             TextField(
               controller: cityController,
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 hintText: "Enter city",
+                hintStyle: TextStyle(color: hintColor),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
               ),
             ),
             SizedBox(height: 25),
-            Text("Payment Method", style: TextStyle(fontSize: 16)),
+            Text("Payment Method", style: TextStyle(fontSize: 16, color: textColor)),
             SizedBox(height: 5),
             Container(
               padding: EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 border: Border.all(color: blueTheme),
                 borderRadius: BorderRadius.circular(8),
+                color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: paymentMethod,
+                  dropdownColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
+                  style: TextStyle(color: textColor),
                   isExpanded: true,
                   items: ["Cash on Delivery", "Card Payment", "Bank Transfer"]
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))

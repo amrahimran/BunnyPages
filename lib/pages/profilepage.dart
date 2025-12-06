@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, unused_local_variable
+// ignore_for_file: use_build_context_synchronously, unused_local_variable, sort_child_properties_last
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -6,6 +6,7 @@ import 'package:project/components/bottombar.dart';
 import 'package:project/components/custombar.dart';
 import 'package:project/pages/splash_screen.dart';
 import 'package:project/pages/wishlist.dart';
+import 'package:project/services/connectivity_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io' show Platform;
@@ -23,7 +24,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? userData;
   bool isLoading = true;
   String errorMsg = '';
-  // String phoneNumber = ''; // local phone number
 
   String get baseUrl {
     if (kIsWeb) return 'http://127.0.0.1:8000';
@@ -49,7 +49,6 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
-      //phoneNumber = prefs.getString('phone') ?? ''; // fetch phone locally
 
       if (token.isEmpty) {
         setState(() {
@@ -107,10 +106,7 @@ class _ProfilePageState extends State<ProfilePage> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
 
-      // Save phone locally
-     //
-
-      final url = Uri.parse('$baseUrl/api/user/update'); // backend only for name/email/password
+      final url = Uri.parse('$baseUrl/api/user/update');
 
       Map<String, dynamic> body = {
         'name': name,
@@ -136,7 +132,7 @@ class _ProfilePageState extends State<ProfilePage> {
           type: QuickAlertType.success,
           text: "Profile updated successfully!",
         );
-        fetchUserData(); // Refresh profile
+        fetchUserData();
       } else {
         final data = json.decode(response.body);
         QuickAlert.show(
@@ -159,21 +155,54 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showEditProfileDialog() {
     final nameController = TextEditingController(text: userData?['name'] ?? '');
     final emailController = TextEditingController(text: userData?['email'] ?? '');
-    //final phoneController = TextEditingController(text: phoneNumber);
     final passwordController = TextEditingController();
+
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Profile'),
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         content: SingleChildScrollView(
           child: Column(
             children: [
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Name')),
-              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
-              //TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Phone')),
-              TextField(controller: passwordController, decoration: const InputDecoration(labelText: 'New Password'), obscureText: true),
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[100],
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[100],
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                decoration: InputDecoration(
+                  labelText: 'New Password',
+                  labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[100],
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                obscureText: true,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+              ),
             ],
           ),
         ),
@@ -181,27 +210,18 @@ class _ProfilePageState extends State<ProfilePage> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(
-              backgroundColor: Color(0xFF7dadc4),
+              backgroundColor: const Color(0xFF7dadc4),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'MontserratRegular'
-                )
             ),
-
-            
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
               String name = nameController.text.trim();
               String email = emailController.text.trim();
-              //String phone = phoneController.text.trim();
               String password = passwordController.text.trim();
 
-              // Validation
               if (name.isEmpty) {
                 QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Name cannot be empty.');
                 return;
@@ -210,10 +230,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Enter a valid email.');
                 return;
               }
-              // if (phone.isEmpty || !RegExp(r'^\d+$').hasMatch(phone)) {
-              //   QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Enter a valid phone number.');
-              //   return;
-              // }
               if (password.isNotEmpty && password.length < 6) {
                 QuickAlert.show(context: context, type: QuickAlertType.error, text: 'Password must be at least 6 characters.');
                 return;
@@ -223,17 +239,11 @@ class _ProfilePageState extends State<ProfilePage> {
               updateUserData(name, email, password.isEmpty ? null : password);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7dadc4), // button background
-              foregroundColor: Colors.white, // text color
+              backgroundColor: const Color(0xFF7dadc4),
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'MontserratRegular',
-              ),
             ),
             child: const Text('Save'),
-            
           ),
         ],
       ),
@@ -242,11 +252,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: const CustomBar(),
-      bottomNavigationBar: const Bottombar(),
+      bottomNavigationBar: const Bottombar(selectedIndex: 3),
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[100],
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : errorMsg.isNotEmpty
@@ -256,39 +267,57 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Text(errorMsg, style: const TextStyle(color: Colors.red)),
                   ),
                 )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _buildAvatarSection(),
-                      const SizedBox(height: 25),
-                      _buildInfoContainer(),
-                      const SizedBox(height: 20),
-                      ElevatedButton.icon(
-                        onPressed: _showEditProfileDialog,
-                        icon: const Icon(Icons.edit),
-                        label: const Text('Edit Profile'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF7dadc4),
-                          foregroundColor: Colors.white,
-                          textStyle: TextStyle(
-                            fontSize: 16
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              : Column(
+                  children: [
+                    const ConnectivityBanner(),
+
+                    // Scrollable profile content below
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _buildAvatarSection(isDark),
+                            const SizedBox(height: 25),
+                            _buildInfoContainer(isDark),
+                            const SizedBox(height: 30),
+                            ElevatedButton.icon(
+                              onPressed: _showEditProfileDialog,
+                              icon: const Icon(Icons.edit),
+                              label: const Text('Edit Profile'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7dadc4),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                textStyle: const TextStyle(fontSize: 18),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _buildFavoritesRow(),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pushNamed(context, '/faq'),
+                              child: const Text("FAQs"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7dadc4),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                textStyle: const TextStyle(fontSize: 18),
+                              ),
+                            ),
+                            const SizedBox(height: 30),
+                            _buildLogoutRow(),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      _buildFavoritesRow(),
-                      const SizedBox(height: 30),
-                      _buildLogoutRow(),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
     );
   }
 
-  Widget _buildAvatarSection() {
+  Widget _buildAvatarSection(bool isDark) {
     final avatarUrl = userData?['profile_photo_url'];
     final displayName = userData?['name'] ?? 'User Name';
 
@@ -296,7 +325,7 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         CircleAvatar(
           radius: 54,
-          backgroundColor: const Color(0xFFEFEFEF),
+          backgroundColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEFEFEF),
           backgroundImage: avatarUrl != null && avatarUrl.toString().isNotEmpty
               ? NetworkImage(avatarUrl)
               : const AssetImage('assets/images/profilepic.webp') as ImageProvider,
@@ -304,61 +333,59 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 10),
         Text(
           displayName,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 26,
             fontFamily: 'MontserratSemibold',
             fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildInfoContainer() {
+  Widget _buildInfoContainer(bool isDark) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: _buildInfoColumn(),
+      child: _buildInfoColumn(isDark),
     );
   }
 
-  Widget _buildInfoColumn() {
+  Widget _buildInfoColumn(bool isDark) {
     final email = userData?['email'] ?? 'Not available';
-    //final phone = phoneNumber.isNotEmpty ? phoneNumber : 'Not set'; // use local phone
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoText("Email", email),
-        const SizedBox(height: 15),
-        // _buildInfoText("Phone", phone),
+        _buildInfoText("Email", email, isDark),
       ],
     );
   }
 
-  Widget _buildInfoText(String label, String value) {
+  Widget _buildInfoText(String label, String value, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontFamily: 'MontserratRegular',
-            color: Colors.grey,
+            color: isDark ? Colors.white70 : Colors.grey,
           ),
         ),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontFamily: 'MontserratRegular',
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
       ],
@@ -376,7 +403,7 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: const [
-          Text("Favorites", style: TextStyle(fontSize: 16, fontFamily: 'MontserratRegular')),
+          Text("Favorites", style: TextStyle(fontSize: 18, fontFamily: 'MontserratRegular')),
           SizedBox(width: 10),
           Icon(Icons.favorite, color: Color(0xFF7dadc4), size: 24),
         ],

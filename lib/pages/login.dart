@@ -9,6 +9,7 @@ import 'signup.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:quickalert/quickalert.dart';
+import 'package:project/services/connectivity_banner.dart'; // <-- ADDED
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -75,13 +76,11 @@ class _LoginState extends State<Login> {
 
       var data = json.decode(response.body);
 
-      // SUCCESS (200)
       if (response.statusCode == 200 && data['token'] != null) {
         await _saveLoginState();
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
 
-        // Save user info for reviews
         if (data['user'] != null) {
           await prefs.setString('userId', data['user']['id'].toString());
           await prefs.setString(
@@ -104,7 +103,6 @@ class _LoginState extends State<Login> {
         return;
       }
 
-      // Laravel 422 validation (wrong email/pass)
       if (response.statusCode == 422) {
         QuickAlert.show(
           context: context,
@@ -115,7 +113,6 @@ class _LoginState extends State<Login> {
         return;
       }
 
-      // OTHER ERRORS
       QuickAlert.show(
         context: context,
         type: QuickAlertType.error,
@@ -136,109 +133,121 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Login',
-                style: TextStyle(
-                  color: Color(0xFF7dadc4),
-                  fontSize: 45,
-                  fontFamily: 'Chewy',
-                ),
-              ),
-              const SizedBox(height: 16),
+      body: Column(
+        children: [
+          // ---------------------------------------------------
+          // CONNECTIVITY BANNER ADDED HERE
+          // ---------------------------------------------------
+          const ConnectivityBanner(),
+          // ---------------------------------------------------
 
-              /// EMAIL
-              TextFormField(
-                controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter email';
-                  }
-                  if (!value.contains("@")) {
-                    return 'Enter a valid email';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              /// PASSWORD
-              TextFormField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                  ),
-                ),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Please enter password' : null,
-              ),
-
-              const SizedBox(height: 40),
-
-              /// LOGIN BUTTON
-              isLoading
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                      onPressed: login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7dadc4),
-                        padding: const EdgeInsets.all(16.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(25.0),
-                        ),
-                      ),
-                      child: const SizedBox(
-                        width: 250,
-                        child: Center(
-                          child: Text(
-                            'Login',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontFamily: 'MontserratRegular',
-                            ),
-                          ),
-                        ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Login',
+                      style: TextStyle(
+                        color: Color(0xFF7dadc4),
+                        fontSize: 45,
+                        fontFamily: 'Chewy',
                       ),
                     ),
+                    const SizedBox(height: 16),
 
-              const SizedBox(height: 20),
+                    /// EMAIL
+                    TextFormField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter email';
+                        }
+                        if (!value.contains("@")) {
+                          return 'Enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
 
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const Signup()),
-                  );
-                },
-                child: const Text(
-                  "Don't have an account yet? Click here to sign up.",
-                  style: TextStyle(
-                    color: Color(0xFF7dadc4),
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
+                    const SizedBox(height: 16),
+
+                    /// PASSWORD
+                    TextFormField(
+                      controller: passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                        ),
+                      ),
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Please enter password' : null,
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    /// LOGIN BUTTON
+                    isLoading
+                        ? const CircularProgressIndicator()
+                        : ElevatedButton(
+                            onPressed: login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF7dadc4),
+                              padding: const EdgeInsets.all(16.0),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(25.0),
+                              ),
+                            ),
+                            child: const SizedBox(
+                              width: 250,
+                              child: Center(
+                                child: Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontFamily: 'MontserratRegular',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                    const SizedBox(height: 20),
+
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const Signup()),
+                        );
+                      },
+                      child: const Text(
+                        "Don't have an account yet? Click here to sign up.",
+                        style: TextStyle(
+                          color: Color(0xFF7dadc4),
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

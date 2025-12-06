@@ -8,6 +8,7 @@ import '../models/product.dart';
 import '../components/custombar.dart';
 import '../components/bottombar.dart';
 import 'details.dart';
+import 'package:project/services/connectivity_banner.dart'; // <-- added
 
 class WishlistPage extends StatelessWidget {
   const WishlistPage({super.key});
@@ -35,81 +36,98 @@ class WishlistPage extends StatelessWidget {
           ),
         ),
       ),
-      body: wishlistProvider.items.isEmpty
-          ? Center(
-              child: Text(
-                'Your wishlist is empty',
-                style: TextStyle(color: textColor, fontSize: 18),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              itemCount: wishlistProvider.items.length,
-              itemBuilder: (context, index) {
-                final product = wishlistProvider.items.elementAt(index);
 
-                return Card(
-                  color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15)),
-                  elevation: 3,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(12),
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.asset(
-                        product.image,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.error),
-                      ),
+      // 🔥 Added here — right below the AppBar, safe & consistent with your other pages
+      body: Column(
+        children: [
+          const ConnectivityBanner(), // <-- added exactly as you wanted
+
+          Expanded(
+            child: wishlistProvider.items.isEmpty
+                ? Center(
+                    child: Text(
+                      'Your wishlist is empty',
+                      style: TextStyle(color: textColor, fontSize: 18),
                     ),
-                    title: Text(
-                      product.name,
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Rs. ${product.price}',
-                      style: TextStyle(color: textColor),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.shopping_cart, color: accentColor),
-                          onPressed: () {
-                            cartProvider.addToCart(product, 1);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Added to cart!')),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    itemCount: wishlistProvider.items.length,
+                    itemBuilder: (context, index) {
+                      final product = wishlistProvider.items.elementAt(index);
+
+                      return Card(
+                        color:
+                            isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
+                        elevation: 3,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(12),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.asset(
+                              product.image,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.error),
+                            ),
+                          ),
+                          title: Text(
+                            product.name,
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Rs. ${product.price}',
+                            style: TextStyle(color: textColor),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.shopping_cart,
+                                    color: accentColor),
+                                onPressed: () {
+                                  cartProvider.addToCart(product, 1);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Added to cart!')),
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon:
+                                    Icon(Icons.delete, color: Colors.redAccent),
+                                onPressed: () {
+                                  wishlistProvider.toggleWishlist(product);
+                                },
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    DetailsPage(productId: product.id),
+                              ),
                             );
                           },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete, color: Colors.redAccent),
-                          onPressed: () {
-                            wishlistProvider.toggleWishlist(product);
-                          },
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailsPage(productId: product.id),
                         ),
                       );
                     },
                   ),
-                );
-              },
-            ),
+          ),
+        ],
+      ),
+
       bottomNavigationBar: const Bottombar(),
       backgroundColor: backgroundColor,
     );

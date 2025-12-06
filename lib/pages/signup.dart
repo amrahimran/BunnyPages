@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:quickalert/quickalert.dart';
 import 'package:project/pages/login.dart';
+import 'package:project/services/connectivity_banner.dart'; // <-- ADDED
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -23,7 +24,6 @@ class _SignupState extends State<Signup> {
   final TextEditingController _passwordCtrl = TextEditingController();
   final TextEditingController _confirmPasswordCtrl = TextEditingController();
 
-  // SAME baseUrl logic as Login page
   String get baseUrl {
     if (kIsWeb) return 'http://127.0.0.1:8000';
     if (Platform.isAndroid) return 'http://10.0.2.2:8000';
@@ -80,126 +80,136 @@ class _SignupState extends State<Signup> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(backgroundColor: Colors.white),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Sign Up',
-                style: TextStyle(
-                  color: Color(0xFF7dadc4),
-                  fontFamily: 'Chewy',
-                  fontSize: 45,
-                ),
-              ),
-              const SizedBox(height: 16),
 
-              // USERNAME
-              TextFormField(
-                controller: _usernameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Username',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                  ),
-                ),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Username is required' : null,
-              ),
-              const SizedBox(height: 16),
+      body: Column(
+        children: [
 
-              // EMAIL
-              TextFormField(
-                controller: _emailCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) return 'Email is required';
-                  final emailRegex = RegExp(
-                      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-                  if (!emailRegex.hasMatch(value)) return 'Invalid email';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
+          const ConnectivityBanner(), // <-- ONLY ADDITION
 
-              // PASSWORD
-              TextFormField(
-                controller: _passwordCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Password is required';
-                  }
-                  if (value.length < 8) {
-                    return 'Password must be at least 8 characters.';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // CONFIRM PASSWORD
-              TextFormField(
-                controller: _confirmPasswordCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm Password',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(25.0)),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Confirm password';
-                  }
-                  if (value != _passwordCtrl.text) {
-                    return "Passwords don't match";
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 50),
-
-              ElevatedButton(
-                onPressed: registerUser,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7dadc4),
-                  padding: const EdgeInsets.all(16.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25.0),
-                  ),
-                ),
-                child: const SizedBox(
-                  width: 250,
-                  child: Center(
-                    child: Text(
-                      'Register',
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Sign Up',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontFamily: 'MontserratRegular',
+                        color: Color(0xFF7dadc4),
+                        fontFamily: 'Chewy',
+                        fontSize: 45,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _usernameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                        ),
+                      ),
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Username is required' : null,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: _emailCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Email is required';
+                        final emailRegex = RegExp(
+                            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                        if (!emailRegex.hasMatch(value)) return 'Invalid email';
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    TextFormField(
+                      controller: _passwordCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password is required';
+                        }
+                        if (value.length < 8) {
+                          return 'Password must be at least 8 characters.';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    TextFormField(
+                      controller: _confirmPasswordCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm Password',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(25.0)),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Confirm password';
+                        }
+                        if (value != _passwordCtrl.text) {
+                          return "Passwords don't match";
+                        }
+                        return null;
+                      },
+                    ),
+
+                    const SizedBox(height: 50),
+
+                    ElevatedButton(
+                      onPressed: registerUser,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7dadc4),
+                        padding: const EdgeInsets.all(16.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25.0),
+                        ),
+                      ),
+                      child: const SizedBox(
+                        width: 250,
+                        child: Center(
+                          child: Text(
+                            'Register',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontFamily: 'MontserratRegular',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

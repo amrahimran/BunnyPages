@@ -3,7 +3,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:project/components/custombar.dart';
-import 'package:provider/provider.dart';
 import 'package:project/components/bottombar.dart';
 import 'package:project/models/product.dart';
 import 'package:project/providers/cart_provider.dart';
@@ -14,6 +13,8 @@ import 'dart:io' show Platform;
 import 'package:quickalert/quickalert.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:project/services/connectivity_banner.dart';
 
 class DetailsPage extends StatefulWidget {
   final String productId;
@@ -209,21 +210,23 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Widget buildReviewsSection() {
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return StreamBuilder<QuerySnapshot>(
       stream: reviewsCollection.orderBy('timestamp', descending: true).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
 
         final reviews = snapshot.data!.docs;
-        if (reviews.isEmpty) return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12.0),
-          child: Text('No reviews yet.', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
+        if (reviews.isEmpty) return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Text('No reviews yet.', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: isDarkMode ? Colors.white70 : Colors.black54)),
         );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Customer Reviews', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text('Customer Reviews', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black)),
             const SizedBox(height: 12),
             Column(
               children: reviews.map((doc) {
@@ -237,11 +240,11 @@ class _DetailsPageState extends State<DetailsPage> {
                   margin: const EdgeInsets.symmetric(vertical: 6),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: isDarkMode ? const Color(0xFF2C2C3C) : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.shade300,
+                        color: isDarkMode ? Colors.black26 : Colors.grey.shade300,
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -260,7 +263,7 @@ class _DetailsPageState extends State<DetailsPage> {
                             )),
                           ),
                           const SizedBox(width: 8),
-                          Text('by $userName', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('by $userName', style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white60 : Colors.grey)),
                           const Spacer(),
                           if (userData != null && userData!['id']?.toString() == userId)
                             IconButton(
@@ -277,7 +280,7 @@ class _DetailsPageState extends State<DetailsPage> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(review, style: const TextStyle(fontSize: 14, height: 1.4)),
+                      Text(review, style: TextStyle(fontSize: 14, height: 1.4, color: isDarkMode ? Colors.white70 : Colors.black87)),
                     ],
                   ),
                 );
@@ -290,17 +293,19 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Widget buildRatingInput() {
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDarkMode ? const Color(0xFF2C2C3C) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Write a Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text('Write a Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDarkMode ? Colors.white : Colors.black)),
           const SizedBox(height: 8),
           Row(
             children: List.generate(5, (index) {
@@ -317,10 +322,14 @@ class _DetailsPageState extends State<DetailsPage> {
           ),
           TextField(
             controller: _reviewController,
+            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
             decoration: InputDecoration(
               hintText: 'Write your review here...',
+              hintStyle: TextStyle(color: isDarkMode ? Colors.white60 : Colors.black54),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              filled: true,
+              fillColor: isDarkMode ? const Color(0xFF3A3A4C) : Colors.white,
             ),
             minLines: 2,
             maxLines: 4,
@@ -356,147 +365,155 @@ class _DetailsPageState extends State<DetailsPage> {
 
     return Scaffold(
       appBar: const CustomBar(),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : selectedProduct == null
-              ? Center(child: Text("Product not found", style: TextStyle(color: textColor)))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // PRODUCT IMAGE
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.asset(
-                          selectedProduct!.image,
-                          height: 260,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(height: 25),
-                      // NAME + WISHLIST
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              selectedProduct!.name,
-                              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: textColor),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              wishlistProvider.isInWishlist(selectedProduct!) ? Icons.favorite : Icons.favorite_border,
-                              color: accentColor,
-                              size: 30,
-                            ),
-                            onPressed: () => wishlistProvider.toggleWishlist(selectedProduct!),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // PRICE
-                      Text('Rs. ${selectedProduct!.price}',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: accentColor)),
-                      const SizedBox(height: 25),
-                      // DESCRIPTION
-                      Text(selectedProduct!.description, style: TextStyle(fontSize: 16, color: textColor.withOpacity(0.85))),
-                      const SizedBox(height: 40),
-                      // SIZE SELECTOR
-                      if (selectedProduct!.category != 'other')
-                        Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _sizeButton('A5', accentColor),
-                              const SizedBox(width: 28),
-                              _sizeButton('B5', accentColor),
-                            ],
-                          ),
-                        ),
-                      if (selectedProduct!.category != 'other') const SizedBox(height: 45),
-                      // COLOR SELECTOR
-                      if (selectedProduct!.id.contains('C'))
-                        Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text('Colors:', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 16)),
-                              const SizedBox(width: 14),
-                              Row(
-                                children: possibleColors.map((c) {
-                                  final isSelected = selectedProduct!.color.toUpperCase() == c;
-                                  return GestureDetector(
-                                    onTap: () => switchColor(c),
-                                    child: Container(
-                                      width: 36,
-                                      height: 36,
-                                      margin: const EdgeInsets.only(right: 12),
-                                      decoration: BoxDecoration(
-                                        color: _colorFromString(c),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: isSelected ? accentColor : Colors.grey, width: 2),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (selectedProduct!.id.contains('C')) const SizedBox(height: 35),
-                      // QUANTITY + ADD TO CART
-                      Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+      bottomNavigationBar: const Bottombar(),
+      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF6F8FA),
+      body: Column(
+        children: [
+          const ConnectivityBanner(),
+          Expanded(
+            child: isLoading
+                ? Center(child: CircularProgressIndicator(color: accentColor))
+                : selectedProduct == null
+                    ? Center(child: Text("Product not found", style: TextStyle(color: textColor)))
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(25)),
+                            // PRODUCT IMAGE
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.asset(
+                                selectedProduct!.image,
+                                height: 260,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            const SizedBox(height: 25),
+                            // NAME + WISHLIST
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    selectedProduct!.name,
+                                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: textColor),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    wishlistProvider.isInWishlist(selectedProduct!) ? Icons.favorite : Icons.favorite_border,
+                                    color: accentColor,
+                                    size: 30,
+                                  ),
+                                  onPressed: () => wishlistProvider.toggleWishlist(selectedProduct!),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // PRICE
+                            Text('Rs. ${selectedProduct!.price}',
+                                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: accentColor)),
+                            const SizedBox(height: 25),
+                            // DESCRIPTION
+                            Text(selectedProduct!.description, style: TextStyle(fontSize: 16, color: textColor.withOpacity(0.85))),
+                            const SizedBox(height: 40),
+                            // SIZE SELECTOR
+                            if (selectedProduct!.category != 'other')
+                              Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    _sizeButton('A5', accentColor),
+                                    const SizedBox(width: 28),
+                                    _sizeButton('B5', accentColor),
+                                  ],
+                                ),
+                              ),
+                            if (selectedProduct!.category != 'other') const SizedBox(height: 45),
+                            // COLOR SELECTOR
+                            if (selectedProduct!.id.contains('C'))
+                              Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Colors:', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 16)),
+                                    const SizedBox(width: 14),
+                                    Row(
+                                      children: possibleColors.map((c) {
+                                        final isSelected = selectedProduct!.color.toUpperCase() == c;
+                                        return GestureDetector(
+                                          onTap: () => switchColor(c),
+                                          child: Container(
+                                            width: 36,
+                                            height: 36,
+                                            margin: const EdgeInsets.only(right: 12),
+                                            decoration: BoxDecoration(
+                                              color: _colorFromString(c),
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: isSelected ? accentColor : Colors.grey, width: 2),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (selectedProduct!.id.contains('C')) const SizedBox(height: 35),
+                            // QUANTITY + ADD TO CART
+                            Center(
                               child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  IconButton(icon: const Icon(Icons.remove), onPressed: () => setState(() { if (quantity > 1) quantity--; })),
-                                  Text(quantity.toString(), style: TextStyle(fontSize: 18, color: textColor)),
-                                  IconButton(icon: const Icon(Icons.add), onPressed: () => setState(() => quantity++)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                                    decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(25)),
+                                    child: Row(
+                                      children: [
+                                        IconButton(icon: const Icon(Icons.remove), onPressed: () => setState(() { if (quantity > 1) quantity--; })),
+                                        Text(quantity.toString(), style: TextStyle(fontSize: 18, color: textColor)),
+                                        IconButton(icon: const Icon(Icons.add), onPressed: () => setState(() => quantity++)),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 35),
+                            // ADD TO CART BUTTON
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  cartProvider.addToCart(selectedProduct!, quantity);
+                                  QuickAlert.show(
+                                    context: context,
+                                    type: QuickAlertType.success,
+                                    text: '$quantity item(s) added to cart!',
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: accentColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                                ),
+                                child: const Text('Add To Cart', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 18)),
+                              ),
+                            ),
+                            const SizedBox(height: 35),
+                            // REVIEW & RATINGS
+                            buildRatingInput(),
+                            const SizedBox(height: 20),
+                            buildReviewsSection(),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 35),
-                      // ADD TO CART BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            cartProvider.addToCart(selectedProduct!, quantity);
-                            QuickAlert.show(
-                              context: context,
-                              type: QuickAlertType.success,
-                              text: '$quantity item(s) added to cart!',
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: accentColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                          ),
-                          child: const Text('Add To Cart', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 18)),
-                        ),
-                      ),
-                      const SizedBox(height: 35),
-                      // REVIEW & RATINGS
-                      buildRatingInput(),
-                      const SizedBox(height: 20),
-                      buildReviewsSection(),
-                    ],
-                  ),
-                ),
-      bottomNavigationBar: const Bottombar(),
+          ),
+        ],
+      ),
     );
   }
 

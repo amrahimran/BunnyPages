@@ -44,7 +44,7 @@ class Bottombar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF121212) : Colors.white,
+          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
           boxShadow: [
             BoxShadow(
               color: isDark
@@ -58,17 +58,17 @@ class Bottombar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _navItem(Icons.home, 0, "Home", context),
-            _navItem(Icons.search, 1, "Browse", context),
-            _navItem(Icons.receipt_long, 2, "Orders", context),
-            _navItem(Icons.account_circle, 3, "Profile", context),
+            _navItem(Icons.home, 0, "Home", context, isDark),
+            _navItem(Icons.search, 1, "Browse", context, isDark),
+            _navItem(Icons.receipt_long, 2, "Orders", context, isDark),
+            _navItem(Icons.account_circle, 3, "Profile", context, isDark),
           ],
         ),
       ),
     );
   }
 
-  Widget _navItem(IconData icon, int index, String label, BuildContext context) {
+  Widget _navItem(IconData icon, int index, String label, BuildContext context, bool isDark) {
     bool isActive = index == selectedIndex;
 
     return InkWell(
@@ -79,12 +79,18 @@ class Bottombar extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isActive ? const Color(0xFF7dadc4).withOpacity(0.15) : Colors.transparent,
+          color: isActive
+              ? const Color(0xFF7dadc4).withOpacity(0.15)
+              : Colors.transparent,
         ),
         child: Icon(
           icon,
           size: 28,
-          color: isActive ? const Color(0xFF7dadc4) : Colors.grey,
+          color: isActive
+              ? const Color(0xFF7dadc4)
+              : isDark
+                  ? Colors.white70
+                  : Colors.grey,
         ),
       ),
     );

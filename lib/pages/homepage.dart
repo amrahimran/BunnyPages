@@ -8,6 +8,9 @@ import 'package:project/components/custombar.dart';
 import 'package:project/components/productcard.dart';
 import 'package:project/models/product.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import 'package:project/services/connectivity_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -28,6 +31,9 @@ class _HomepageState extends State<HomePage> {
     "assets/heroslides/slide3.png",
     "assets/heroslides/slide4.png",
   ];
+
+  // Track actual internet status
+  final ValueNotifier<bool> _isOnline = ValueNotifier<bool>(true);
 
   @override
   void initState() {
@@ -56,7 +62,7 @@ class _HomepageState extends State<HomePage> {
       final url = Uri.parse('http://127.0.0.1:8000/api/products'); // adjust for your API
       final response = await http.get(url);
 
-      if (!mounted) return; 
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
@@ -92,71 +98,115 @@ class _HomepageState extends State<HomePage> {
     }
   }
 
+  // Helper to check if internet is actually reachable
+  Future<bool> _checkActualInternet() async {
+    try {
+      final response = await http.get(Uri.parse('https://www.google.com')).timeout(const Duration(seconds: 5));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
+    final connectivityService = Provider.of<ConnectivityService>(context);
+
+    // Listen to connectivity changes and verify actual internet
+    connectivityService.connectivityStream.listen((result) async {
+      bool online = result != ConnectivityResult.none ? await _checkActualInternet() : false;
+      _isOnline.value = online;
+    });
+
     // Build lists for each category
-      Map<String, List<Product>> categorizedProducts = {
-    'Vintage Collection': allProducts
-        .where((p) => p.category == 'vintage' && p.id.startsWith('L'))
-        .toList(),
-    'Cute Notebooks': allProducts
-        .where((p) => p.category == 'cute' && p.id.startsWith('L'))
-        .toList(),
-    'Journals': allProducts
-        .where((p) => p.category == 'journal' && p.id.startsWith('L'))
-        .toList(),
-    'Eastern Beauty': allProducts
-        .where((p) => p.category == 'eastern' && p.id.startsWith('L'))
-        .toList(),
-    'Other': allProducts
-        .where((p) => p.category == 'other' && p.id.startsWith('L'))
-        .toList(),
-  };
+    Map<String, List<Product>> categorizedProducts = {
+      'Vintage Collection': allProducts
+          .where((p) => p.category == 'vintage' && p.id.startsWith('L'))
+          .toList(),
+      'Cute Notebooks': allProducts
+          .where((p) => p.category == 'cute' && p.id.startsWith('L'))
+          .toList(),
+      'Journals': allProducts
+          .where((p) => p.category == 'journal' && p.id.startsWith('L'))
+          .toList(),
+      'Eastern Beauty': allProducts
+          .where((p) => p.category == 'eastern' && p.id.startsWith('L'))
+          .toList(),
+      'Other': allProducts
+          .where((p) => p.category == 'other' && p.id.startsWith('L'))
+          .toList(),
+    };
 
     return SafeArea(
       child: Scaffold(
         appBar: const CustomBar(),
         bottomNavigationBar: const Bottombar(),
-        body: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Hero slider
-                    SizedBox(
-                      height: isLandscape ? 250 : 195,
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: heroslides.length,
-                        onPageChanged: (index) => currentPage = index,
-                        itemBuilder: (context, index) => Padding(
-                          padding: const EdgeInsets.fromLTRB(10, 1, 10, 4),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10.0),
-                            child: Image.asset(
-                              heroslides[index],
-                              fit: BoxFit.cover,
-                              width: double.infinity,
+        body: Column(
+          children: [
+            // Network connectivity banner
+            ValueListenableBuilder<bool>(
+              valueListenable: _isOnline,
+              builder: (context, isOnline, _) {
+                return isOnline
+                    ? const SizedBox.shrink()
+                    : Container(
+                        color: Colors.red,
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        child: const Text(
+                          'No Internet Connection',
+                          style: TextStyle(color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                      );
+              },
+            ),
+
+            // Page content
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Hero slider
+                          SizedBox(
+                            height: isLandscape ? 250 : 195,
+                            child: PageView.builder(
+                              controller: _pageController,
+                              itemCount: heroslides.length,
+                              onPageChanged: (index) => currentPage = index,
+                              itemBuilder: (context, index) => Padding(
+                                padding: const EdgeInsets.fromLTRB(10, 1, 10, 4),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  child: Image.asset(
+                                    heroslides[index],
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 20),
+                          // Build all category sections
+                          for (var entry in categorizedProducts.entries)
+                            _buildCategorySection(
+                              entry.key,
+                              entry.value,
+                              isLandscape,
+                            ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    // Build all category sections
-                    for (var entry in categorizedProducts.entries)
-                      _buildCategorySection(
-                        entry.key,
-                        entry.value,
-                        isLandscape,
-                      ),
-                  ],
-                ),
-              ),
+            ),
+          ],
+        ),
       ),
     );
   }
