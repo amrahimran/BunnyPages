@@ -23,21 +23,26 @@ class _SplashscreenState extends State<Splashscreen> {
   void _navigateNext() async {
     await Future.delayed(const Duration(seconds: 3));
 
+    if (!mounted) return; // FIX 1 — prevent using context after dispose
+
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? token = prefs.getString('token');
+
+    if (!mounted) return; // FIX 2 — double safety
 
     if (token != null && token.isNotEmpty) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => HomePage()),
+        MaterialPageRoute(builder: (context) => const HomePage()),
       );
     } else {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => Login()),
+        MaterialPageRoute(builder: (context) => const Login()),
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,4 @@
-// ignore_for_file: unused_import, unused_local_variable, deprecated_member_use
+// ignore_for_file: unused_import, unused_local_variable, deprecated_member_use, curly_braces_in_flow_control_structures
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -14,7 +14,6 @@ import 'dart:io' show Platform;
 import 'package:quickalert/quickalert.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 
 class DetailsPage extends StatefulWidget {
   final String productId;
@@ -62,7 +61,6 @@ class _DetailsPageState extends State<DetailsPage> {
     fetchProductDetails(widget.productId);
   }
 
-  // Fetch user details like ProfilePage
   Future<void> fetchUserData() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -179,7 +177,6 @@ class _DetailsPageState extends State<DetailsPage> {
     }
   }
 
-  // Submit review using API user details (no FirebaseAuth)
   Future<void> submitReview() async {
     if (_rating == 0 || _reviewController.text.trim().isEmpty) {
       QuickAlert.show(
@@ -218,86 +215,132 @@ class _DetailsPageState extends State<DetailsPage> {
         if (!snapshot.hasData) return const SizedBox();
 
         final reviews = snapshot.data!.docs;
-        if (reviews.isEmpty) return const Text('No reviews yet.');
+        if (reviews.isEmpty) return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12.0),
+          child: Text('No reviews yet.', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic)),
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: reviews.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final rating = data['rating'] ?? 0;
-            final review = data['review'] ?? '';
-            final userName = data['userName'] ?? 'Anonymous';
-            final userId = data['userId'] ?? '';
+          children: [
+            const Text('Customer Reviews', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Column(
+              children: reviews.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final rating = data['rating'] ?? 0;
+                final review = data['review'] ?? '';
+                final userName = data['userName'] ?? 'Anonymous';
+                final userId = data['userId'] ?? '';
 
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              child: ListTile(
-                leading: Icon(Icons.star, color: Colors.amber),
-                title: Text('$rating / 5'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(review),
-                    const SizedBox(height: 4),
-                    Text('by $userName', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
-                trailing: userData != null && userData!['id']?.toString() == userId
-                    ? IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () async {
-                          await reviewsCollection.doc(doc.id).delete();
-                          QuickAlert.show(
-                            context: context,
-                            type: QuickAlertType.success,
-                            text: 'Review deleted successfully!',
-                          );
-                        },
-                      )
-                    : null,
-              ),
-            );
-          }).toList(),
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade300,
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Row(
+                            children: List.generate(5, (i) => Icon(
+                              i < rating ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 18,
+                            )),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('by $userName', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          const Spacer(),
+                          if (userData != null && userData!['id']?.toString() == userId)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                              onPressed: () async {
+                                await reviewsCollection.doc(doc.id).delete();
+                                QuickAlert.show(
+                                  context: context,
+                                  type: QuickAlertType.success,
+                                  text: 'Review deleted successfully!',
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(review, style: const TextStyle(fontSize: 14, height: 1.4)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
         );
       },
     );
   }
 
   Widget buildRatingInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Rate this product:', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Row(
-          children: List.generate(5, (index) {
-            final starIndex = index + 1;
-            return IconButton(
-              onPressed: () => setState(() => _rating = starIndex),
-              icon: Icon(_rating >= starIndex ? Icons.star : Icons.star_border, color: Colors.amber),
-            );
-          }),
-        ),
-        TextField(
-          controller: _reviewController,
-          decoration: const InputDecoration(
-            hintText: 'Write your review...',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Write a Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(5, (index) {
+              final starIndex = index + 1;
+              return IconButton(
+                onPressed: () => setState(() => _rating = starIndex),
+                icon: Icon(
+                  _rating >= starIndex ? Icons.star : Icons.star_border,
+                  color: Colors.amber,
+                  size: 28,
+                ),
+              );
+            }),
           ),
-          minLines: 1,
-          maxLines: 3,
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: submitReview,
-            child: const Text('Submit Review'),
+          TextField(
+            controller: _reviewController,
+            decoration: InputDecoration(
+              hintText: 'Write your review here...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            ),
+            minLines: 2,
+            maxLines: 4,
           ),
-        ),
-        const SizedBox(height: 16),
-      ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: submitReview,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7dadc4),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Submit Review', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -448,6 +491,7 @@ class _DetailsPageState extends State<DetailsPage> {
                       const SizedBox(height: 35),
                       // REVIEW & RATINGS
                       buildRatingInput(),
+                      const SizedBox(height: 20),
                       buildReviewsSection(),
                     ],
                   ),

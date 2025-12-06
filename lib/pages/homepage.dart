@@ -34,6 +34,8 @@ class _HomepageState extends State<HomePage> {
     super.initState();
     fetchProducts();
     Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) return;
+
       if (currentPage < heroslides.length - 1) {
         currentPage++;
       } else {
@@ -53,6 +55,8 @@ class _HomepageState extends State<HomePage> {
     try {
       final url = Uri.parse('http://127.0.0.1:8000/api/products'); // adjust for your API
       final response = await http.get(url);
+
+      if (!mounted) return; 
 
       if (response.statusCode == 200) {
         final jsonResponse = json.decode(response.body);
