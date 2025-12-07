@@ -12,7 +12,8 @@ import 'package:project/providers/orders_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'pages/faq_list_page.dart';
-import 'services/connectivity_service.dart'; // <-- NEW IMPORT
+import 'services/connectivity_service.dart'; 
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,10 +27,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
-        Provider<ConnectivityService>( // <-- NEW PROVIDER
-          create: (_) => ConnectivityService(),
-          dispose: (_, service) => service.dispose(),
-        ),
+        Provider(create: (_) => ConnectivityService()),
       ],
       child: const MyApp(),
     ),
@@ -47,7 +45,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (context) => HomePage(),
         '/login': (context) => Login(),
-        '/faq': (context) => const FAQListPage(), // <-- NEW ROUTE
+        '/faq': (context) => const FAQListPage(),
       },
       theme: ThemeData(
         brightness: Brightness.light,
@@ -61,18 +59,17 @@ class MyApp extends StatelessWidget {
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: const Color(0xFF80CBC4),           // Soft teal accent (buttons, highlights)
-        scaffoldBackgroundColor: const Color(0xFF1E1E2C), // Dark but soft background
-        cardColor: const Color(0xFF2C2C3C),             // For cards/containers
-        dividerColor: Colors.grey.shade700,             // Divider lines
+        primaryColor: const Color(0xFF80CBC4),
+        scaffoldBackgroundColor: const Color(0xFF1E1E2C),
+        cardColor: const Color(0xFF2C2C3C),
+        dividerColor: Colors.grey.shade700,
         textTheme: const TextTheme(
-          bodyLarge: const TextStyle(color: Colors.white70, fontFamily: 'MontserratRegular'),
-          bodyMedium: const TextStyle(color: Colors.white70, fontFamily: 'MontserratRegular'),
-          titleLarge: const TextStyle(color: Colors.white, fontFamily: 'MontserratRegular'),
-
+          bodyLarge: TextStyle(color: Colors.white70, fontFamily: 'MontserratRegular'),
+          bodyMedium: TextStyle(color: Colors.white70, fontFamily: 'MontserratRegular'),
+          titleLarge: TextStyle(color: Colors.white, fontFamily: 'MontserratRegular'),
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF2C2C3C),           // Dark appbar
+          backgroundColor: Color(0xFF2C2C3C),
           foregroundColor: Colors.white,
           elevation: 2,
         ),

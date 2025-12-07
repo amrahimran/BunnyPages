@@ -16,6 +16,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:project/services/connectivity_banner.dart';
 
+// New imports for contact sharing
+import 'package:contacts_service/contacts_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 class DetailsPage extends StatefulWidget {
   final String productId;
 
@@ -353,6 +358,69 @@ class _DetailsPageState extends State<DetailsPage> {
     );
   }
 
+  // ----------------- NEW SHARE FEATURE -----------------
+  Future<bool> _requestContactPermission() async {
+    var status = await Permission.contacts.status;
+    if (!status.isGranted) {
+      status = await Permission.contacts.request();
+    }
+    return status.isGranted;
+  }
+
+  Future<void> shareProduct() async {
+    if (kIsWeb) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.info,
+        text: "Sharing contacts not supported on Web",
+      );
+      return;
+    }
+
+    if (!await _requestContactPermission()) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "Contact permission denied",
+      );
+      return;
+    }
+
+    final contact = await ContactsService.openDeviceContactPicker();
+    if (contact == null) return;
+
+    final contactInfo = contact.phones!.isNotEmpty
+        ? contact.phones!.first.value
+        : contact.emails!.isNotEmpty
+            ? contact.emails!.first.value
+            : null;
+
+    if (contactInfo == null) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "No phone or email found for ${contact.displayName}",
+      );
+      return;
+    }
+
+    final productUrl = "https://yourapp.com/product/${selectedProduct!.id}";
+    final message =
+        "Hey ${contact.displayName}, check out this notebook: ${selectedProduct!.name}!\n$productUrl";
+
+    final uri = Uri.parse("sms:$contactInfo?body=${Uri.encodeComponent(message)}");
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "Cannot launch share options",
+      );
+    }
+  }
+  // ---------------- END SHARE FEATURE -----------------
+
   @override
   Widget build(BuildContext context) {
     bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -501,6 +569,22 @@ class _DetailsPageState extends State<DetailsPage> {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                                 ),
                                 child: const Text('Add To Cart', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 18)),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            // SHARE BUTTON
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: shareProduct,
+                                icon: const Icon(Icons.share),
+                                label: const Text('Share this Product', style: TextStyle(fontSize: 16)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 35),

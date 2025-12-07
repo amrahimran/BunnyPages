@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:project/services/connectivity_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 

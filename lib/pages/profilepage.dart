@@ -1,6 +1,8 @@
-// ignore_for_file: use_build_context_synchronously, unused_local_variable, sort_child_properties_last
+// ignore_for_file: use_build_context_synchronously, unused_local_variable, sort_child_properties_last, depend_on_referenced_packages
 
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:project/components/bottombar.dart';
 import 'package:project/components/custombar.dart';
@@ -9,9 +11,11 @@ import 'package:project/pages/wishlist.dart';
 import 'package:project/services/connectivity_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:quickalert/quickalert.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -25,6 +29,11 @@ class _ProfilePageState extends State<ProfilePage> {
   bool isLoading = true;
   String errorMsg = '';
 
+  XFile? _pickedImage; // For Android/iOS
+  Uint8List? _webImageBytes; // For Web preview
+
+  final ImagePicker _picker = ImagePicker();
+
   String get baseUrl {
     if (kIsWeb) return 'http://127.0.0.1:8000';
     try {
@@ -37,7 +46,98 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _loadSavedImage();
     fetchUserData();
+  }
+
+  Future<void> _loadSavedImage() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    if (kIsWeb) {
+      final bytesString = prefs.getString('profile_image_bytes');
+      if (bytesString != null) {
+        setState(() {
+          _webImageBytes = base64Decode(bytesString);
+        });
+      }
+    } else {
+      final savedPath = prefs.getString('profile_image_path');
+      if (savedPath != null && File(savedPath).existsSync()) {
+        setState(() {
+          _pickedImage = XFile(savedPath);
+        });
+      }
+    }
+  }
+
+  Future<void> _pickImage() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () async {
+                Navigator.of(context).pop();
+                final XFile? image =
+                    await _picker.pickImage(source: ImageSource.gallery);
+                if (image != null) {
+                  await _savePickedImage(image);
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () async {
+                Navigator.of(context).pop();
+                final XFile? image =
+                    await _picker.pickImage(source: ImageSource.camera);
+                if (image != null) {
+                  await _savePickedImage(image);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _savePickedImage(XFile image) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      if (kIsWeb) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _webImageBytes = bytes;
+        });
+        await prefs.setString('profile_image_bytes', base64Encode(bytes));
+      } else {
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = path.basename(image.path);
+        final savedImage =
+            await File(image.path).copy('${appDir.path}/$fileName');
+        setState(() {
+          _pickedImage = XFile(savedImage.path);
+        });
+        await prefs.setString('profile_image_path', savedImage.path);
+      }
+
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.success,
+        text: "Profile photo updated successfully!",
+      );
+    } catch (e) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "Failed to update profile photo: $e",
+      );
+    }
   }
 
   Future<void> fetchUserData() async {
@@ -270,8 +370,6 @@ class _ProfilePageState extends State<ProfilePage> {
               : Column(
                   children: [
                     const ConnectivityBanner(),
-
-                    // Scrollable profile content below
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -318,17 +416,46 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildAvatarSection(bool isDark) {
-    final avatarUrl = userData?['profile_photo_url'];
     final displayName = userData?['name'] ?? 'User Name';
+
+    ImageProvider avatarImage;
+    if (kIsWeb && _webImageBytes != null) {
+      avatarImage = MemoryImage(_webImageBytes!);
+    } else if (!kIsWeb && _pickedImage != null) {
+      avatarImage = FileImage(File(_pickedImage!.path));
+    } else if (userData?['profile_photo_url'] != null &&
+        userData!['profile_photo_url'].toString().isNotEmpty) {
+      avatarImage = NetworkImage(userData!['profile_photo_url']);
+    } else {
+      avatarImage = const AssetImage('assets/images/profilepic.webp');
+    }
 
     return Column(
       children: [
-        CircleAvatar(
-          radius: 54,
-          backgroundColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEFEFEF),
-          backgroundImage: avatarUrl != null && avatarUrl.toString().isNotEmpty
-              ? NetworkImage(avatarUrl)
-              : const AssetImage('assets/images/profilepic.webp') as ImageProvider,
+        Stack(
+          children: [
+            CircleAvatar(
+              radius: 54,
+              backgroundColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEFEFEF),
+              backgroundImage: avatarImage,
+            ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7dadc4),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.black87 : Colors.white, width: 2),
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         Text(
