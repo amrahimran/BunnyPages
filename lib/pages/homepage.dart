@@ -60,7 +60,9 @@ class _HomepageState extends State<HomePage> {
 
   Future<void> fetchProducts() async {
     try {
-      final url = Uri.parse('http://127.0.0.1:8000/api/products'); // adjust for your API
+      // final url = Uri.parse('http://127.0.0.1:8000/api/products'); // adjust for your API
+      final url = Uri.parse('http://10.0.2.2:8000/api/products');
+
       final response = await http.get(url);
 
       if (!mounted) return;
@@ -69,26 +71,33 @@ class _HomepageState extends State<HomePage> {
         final jsonResponse = json.decode(response.body);
         final dataList = jsonResponse['data'] as List<dynamic>;
 
-        setState(() {
-          allProducts = dataList.map<Product>((json) {
-            final p = Product.fromJson(json);
-            print("${p.name} - ${p.category} - ${p.image}"); // debug output
-            return Product(
-              id: p.id,
-              name: p.name,
-              category: p.category.toLowerCase(),
-              color: p.color,
-              description: p.description,
-              price: p.price,
-              quantity: p.quantity,
-              image: p.image.isNotEmpty
-                  ? p.image
-                  : 'assets/products/placeholder.webp', // fallback image
-              isBestSeller: p.isBestSeller,
-            );
-          }).toList();
-          isLoading = false;
-        });
+      setState(() {
+        allProducts = dataList.map<Product>((json) {
+          final p = Product.fromJson(json);
+
+          // Fix image path: "products/XYZ.webp" → "assets/products/XYZ.webp"
+          final imagePath = p.image.isNotEmpty
+              ? '${p.image}'
+              : 'assets/products/placeholder.webp';
+
+          print("${p.name} - ${p.category} - $imagePath"); // debug output
+
+          return Product(
+            id: p.id,
+            name: p.name,
+            category: p.category.toLowerCase(),
+            color: p.color,
+            description: p.description,
+            price: p.price,
+            quantity: p.quantity,
+            image: imagePath,
+            isBestSeller: p.isBestSeller,
+          );
+        }).toList();
+
+        isLoading = false;
+      });
+
       } else {
         setState(() => isLoading = false);
         print("API returned status ${response.statusCode}");

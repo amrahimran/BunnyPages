@@ -32,7 +32,7 @@ class Product {
           ? (json['price'] as int).toDouble()
           : (json['price'] ?? 0).toDouble(),
       quantity: json['quantity'] ?? 0,
-      image: json['image'] ?? '', // Make sure this is like "assets/products/M6CBLACK.webp"
+      image: "assets/${json['image'] ?? ''}",
       isBestSeller: json['isBestSeller'] == 1 || json['isBestSeller'] == true,
     );
   }

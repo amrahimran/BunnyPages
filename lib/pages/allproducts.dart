@@ -9,9 +9,7 @@ import 'package:project/components/productcard.dart';
 import 'package:project/models/product.dart';
 import 'package:http/http.dart' as http;
 import 'package:quickalert/quickalert.dart';
-import 'package:provider/provider.dart';
-import 'package:project/services/connectivity_service.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:project/services/connectivity_banner.dart'; // <— ADDED THIS IMPORT
 
 class AllProducts extends StatefulWidget {
   const AllProducts({super.key});
@@ -28,39 +26,17 @@ class _AllproductsState extends State<AllProducts> {
   bool isLoading = true;
   TextEditingController _searchController = TextEditingController();
 
-  final ValueNotifier<bool> _isOnline = ValueNotifier<bool>(true);
-
   @override
   void initState() {
     super.initState();
     fetchProducts();
-
-    final connectivityService =
-        Provider.of<ConnectivityService>(context, listen: false);
-
-    // Listen to connectivity changes and verify actual internet
-    connectivityService.connectivityStream.listen((result) async {
-      bool online = result != ConnectivityResult.none
-          ? await _checkActualInternet()
-          : false;
-      _isOnline.value = online;
-    });
-  }
-
-  Future<bool> _checkActualInternet() async {
-    try {
-      final response = await http
-          .get(Uri.parse('https://www.google.com'))
-          .timeout(const Duration(seconds: 5));
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
-    }
   }
 
   Future<void> fetchProducts() async {
     try {
-      var url = Uri.parse('http://127.0.0.1:8000/api/products');
+      //var url = Uri.parse('http://127.0.0.1:8000/api/products');
+      var url = Uri.parse('http://10.0.2.2:8000/api/products');
+
       var response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -69,7 +45,7 @@ class _AllproductsState extends State<AllProducts> {
 
         fullProducts = dataList
             .map<Product>((json) =>
-                Product.fromJson(json as Map<String, dynamic>))
+            Product.fromJson(json as Map<String, dynamic>))
             .toList();
 
         filteredProducts = List.from(fullProducts);
@@ -130,103 +106,87 @@ class _AllproductsState extends State<AllProducts> {
         bottomNavigationBar: const Bottombar(selectedIndex: 1),
         body: Column(
           children: [
-            // Network connectivity banner
-            ValueListenableBuilder<bool>(
-              valueListenable: _isOnline,
-              builder: (context, isOnline, _) {
-                return isOnline
-                    ? const SizedBox.shrink()
-                    : Container(
-                        color: Colors.red,
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(8),
-                        child: const Text(
-                          'No Internet Connection',
-                          style: TextStyle(color: Colors.white),
-                          textAlign: TextAlign.center,
-                        ),
-                      );
-              },
-            ),
+            // CONNECTIVITY BANNER (NEW)
+            const ConnectivityBanner(),
 
-            // Page content
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: filterProducts,
-                              style: TextStyle(color: textColor),
-                              decoration: InputDecoration(
-                                hintText: 'Search products...',
-                                hintStyle: TextStyle(color: hintColor),
-                                prefixIcon: Icon(Icons.search, color: textColor),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
-                                filled: true,
-                                fillColor: cardColor,
-                              ),
-                            ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: filterProducts,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          hintText: 'Search products...',
+                          hintStyle: TextStyle(color: hintColor),
+                          prefixIcon: Icon(Icons.search, color: textColor),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(25),
                           ),
-                          Container(
-                            margin: const EdgeInsets.only(left: 15),
-                            alignment: Alignment.centerLeft,
-                            height: 30,
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                dropdownColor: cardColor,
-                                alignment: Alignment.center,
-                                borderRadius: BorderRadius.circular(25),
-                                focusColor: cardColor,
-                                icon: Icon(Icons.arrow_drop_down, color: textColor),
-                                value: selectedOption,
-                                onChanged: (String? newValue) {
-                                  if (newValue == null) return;
-                                  sortProducts(newValue);
-                                },
-                                items: sortOptions
-                                    .map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Center(
-                                        child: Text(
-                                      value,
-                                      style: TextStyle(color: textColor),
-                                    )),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: isLandscape ? 2 : 1,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                                mainAxisExtent: 270,
-                              ),
-                              itemCount: filteredProducts.length,
-                              itemBuilder: (context, index) {
-                                return ProductCard(
-                                  product: filteredProducts[index],
-                                );
-                              },
-                            ),
-                          ),
-                        ],
+                          filled: true,
+                          fillColor: cardColor,
+                        ),
                       ),
                     ),
+                    Container(
+                      margin: const EdgeInsets.only(left: 15),
+                      alignment: Alignment.centerLeft,
+                      height: 30,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          dropdownColor: cardColor,
+                          alignment: Alignment.center,
+                          borderRadius: BorderRadius.circular(25),
+                          focusColor: cardColor,
+                          icon: Icon(Icons.arrow_drop_down, color: textColor),
+                          value: selectedOption,
+                          onChanged: (String? newValue) {
+                            if (newValue == null) return;
+                            sortProducts(newValue);
+                          },
+                          items: sortOptions
+                              .map<DropdownMenuItem<String>>((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Center(
+                                child: Text(
+                                  value,
+                                  style: TextStyle(color: textColor),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isLandscape ? 2 : 1,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          mainAxisExtent: 270,
+                        ),
+                        itemCount: filteredProducts.length,
+                        itemBuilder: (context, index) {
+                          return ProductCard(
+                            product: filteredProducts[index],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
