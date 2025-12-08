@@ -1,4 +1,4 @@
-// ignore_for_file: unused_import, unused_local_variable, deprecated_member_use, curly_braces_in_flow_control_structures, unused_element, use_build_context_synchronously
+// ignore_for_file: unused_import, unused_local_variable, deprecated_member_use, curly_braces_in_flow_control_structures, use_build_context_synchronously
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -34,7 +34,7 @@ class _DetailsPageState extends State<DetailsPage> {
   bool isLoading = true;
   int quantity = 1;
 
-  // Firestore
+  // Firestore for reviews
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late CollectionReference reviewsCollection;
 
@@ -42,7 +42,8 @@ class _DetailsPageState extends State<DetailsPage> {
   final TextEditingController _reviewController = TextEditingController();
   int _rating = 0;
 
-  // User info (from SharedPreferences)
+  // User info
+  Map<String, dynamic>? userData;
   String phoneNumber = '';
 
   String get baseUrl {
@@ -57,7 +58,7 @@ class _DetailsPageState extends State<DetailsPage> {
   @override
   void initState() {
     super.initState();
-    fetchPhoneNumber();
+    fetchUserData();
     reviewsCollection = _firestore
         .collection('product_reviews')
         .doc(widget.productId)
@@ -65,12 +66,39 @@ class _DetailsPageState extends State<DetailsPage> {
     fetchProductDetails(widget.productId);
   }
 
-  Future<void> fetchPhoneNumber() async {
+  Future<void> fetchUserData() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       phoneNumber = prefs.getString('phone') ?? '';
-      setState(() {});
+
+      final token = prefs.getString('token') ?? '';
+      if (token.isEmpty) return;
+
+      final url = Uri.parse('$baseUrl/api/user');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        Map<String, dynamic>? user;
+        if (jsonData is Map<String, dynamic>) {
+          if (jsonData.containsKey('user') && jsonData['user'] is Map) {
+            user = Map<String, dynamic>.from(jsonData['user']);
+          } else if (jsonData.containsKey('data') && jsonData['data'] is Map) {
+            user = Map<String, dynamic>.from(jsonData['data']);
+          } else {
+            user = Map<String, dynamic>.from(jsonData);
+          }
+        }
+        setState(() => userData = user);
+      }
     } catch (_) {}
+    setState(() {});
   }
 
   Future<void> fetchProductDetails(String productId) async {
@@ -81,7 +109,6 @@ class _DetailsPageState extends State<DetailsPage> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body)['data'] ?? json.decode(response.body);
-
         setState(() {
           selectedProduct = Product(
             id: data['id']?.toString() ?? '',
@@ -129,10 +156,8 @@ class _DetailsPageState extends State<DetailsPage> {
 
   void switchColor(String newColor) {
     if (selectedProduct == null || !selectedProduct!.id.contains('C')) return;
-
     final parts = selectedProduct!.id.split('C');
     if (parts.isEmpty) return;
-
     final newId = '${parts[0]}C$newColor'.toUpperCase();
     fetchProductDetails(newId);
   }
@@ -162,10 +187,15 @@ class _DetailsPageState extends State<DetailsPage> {
       return;
     }
 
+    final userName = userData?['name'] ?? userData?['email'] ?? 'Anonymous';
+    final userId = userData?['id']?.toString() ?? '';
+
     await reviewsCollection.add({
       'rating': _rating,
       'review': _reviewController.text.trim(),
       'timestamp': FieldValue.serverTimestamp(),
+      'userId': userId,
+      'userName': userName,
     });
 
     _reviewController.clear();
@@ -185,8 +215,8 @@ class _DetailsPageState extends State<DetailsPage> {
       stream: reviewsCollection.orderBy('timestamp', descending: true).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
-
         final reviews = snapshot.data!.docs;
+
         if (reviews.isEmpty)
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 12.0),
@@ -211,6 +241,8 @@ class _DetailsPageState extends State<DetailsPage> {
                 final data = doc.data() as Map<String, dynamic>;
                 final rating = data['rating'] ?? 0;
                 final review = data['review'] ?? '';
+                final userName = data['userName'] ?? 'Anonymous';
+                final userId = data['userId'] ?? '';
 
                 return Container(
                   margin: const EdgeInsets.symmetric(vertical: 6),
@@ -223,21 +255,33 @@ class _DetailsPageState extends State<DetailsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        children: List.generate(
-                          5,
-                              (i) => Icon(
-                            i < rating ? Icons.star : Icons.star_border,
-                            color: Colors.amber,
-                            size: 18,
+                        children: [
+                          Row(
+                            children: List.generate(5, (i) => Icon(
+                              i < rating ? Icons.star : Icons.star_border,
+                              color: Colors.amber,
+                              size: 18,
+                            )),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Text('by $userName', style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.white60 : Colors.grey)),
+                          const Spacer(),
+                          if (userData != null && userData!['id']?.toString() == userId)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                              onPressed: () async {
+                                await reviewsCollection.doc(doc.id).delete();
+                                QuickAlert.show(
+                                  context: context,
+                                  type: QuickAlertType.success,
+                                  text: 'Review deleted successfully!',
+                                );
+                              },
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 6),
-                      Text(review,
-                          style: TextStyle(
-                              fontSize: 14,
-                              height: 1.4,
-                              color: isDarkMode ? Colors.white70 : Colors.black87)),
+                      Text(review, style: TextStyle(fontSize: 14, height: 1.4, color: isDarkMode ? Colors.white70 : Colors.black87)),
                     ],
                   ),
                 );
@@ -262,8 +306,7 @@ class _DetailsPageState extends State<DetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Write a Review',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 18, color: isDarkMode ? Colors.white : Colors.black)),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDarkMode ? Colors.white : Colors.black)),
           const SizedBox(height: 8),
           Row(
             children: List.generate(5, (index) {
@@ -303,8 +346,7 @@ class _DetailsPageState extends State<DetailsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Submit Review',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: const Text('Submit Review', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -336,31 +378,8 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Future<Contact?> pickContactAndCheckPermission() async {
-    // Check permission first
-    PermissionStatus status = await Permission.contacts.status;
-
-    if (!status.isGranted) {
-      status = await Permission.contacts.request();
-      if (!status.isGranted) {
-        QuickAlert.show(
-          context: context,
-          type: QuickAlertType.error,
-          text: "Contacts permission denied. Enable it from settings.",
-        );
-        return null;
-      }
-    }
-
-    // Permission granted, now get contacts
-    final hasPermission = await FlutterContacts.requestPermission();
-    if (!hasPermission) {
-      QuickAlert.show(
-        context: context,
-        type: QuickAlertType.error,
-        text: "Contacts permission denied by FlutterContacts.",
-      );
-      return null;
-    }
+    final hasPermission = await _requestContactPermission();
+    if (!hasPermission) return null;
 
     final contacts = await FlutterContacts.getContacts(withProperties: true);
     if (contacts.isEmpty) {
@@ -371,19 +390,15 @@ class _DetailsPageState extends State<DetailsPage> {
       );
       return null;
     }
-
-    // Return the first contact
     return contacts.first;
   }
 
   Future<void> shareProduct() async {
     if (selectedProduct == null) return;
 
-    // Optional: pick a contact
     final contact = await pickContactAndCheckPermission();
     String contactName = contact?.displayName ?? "there";
 
-    // Build message
     final message = """
 Hey $contactName, check out this notebook:
 
@@ -404,8 +419,6 @@ Download the app to see more and buy: https://127.0.0.1:8000/register
       );
     }
   }
-
-
   // ---------------- END SHARE FEATURE -----------------
 
   @override
@@ -419,212 +432,212 @@ Download the app to see more and buy: https://127.0.0.1:8000/register
     final possibleColors = ['BLACK', 'PINK', 'BLUE', 'GREEN'];
 
     return Scaffold(
-      appBar: const CustomBar(),
-      bottomNavigationBar: const Bottombar(),
-      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF6F8FA),
-      body: Column(
-        children: [
-          const ConnectivityBanner(),
-          Expanded(
+        appBar: const CustomBar(),
+        bottomNavigationBar: const Bottombar(),
+        backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF6F8FA),
+        body: Column(
+            children: [
+            const ConnectivityBanner(),
+        Expanded(
             child: isLoading
                 ? Center(child: CircularProgressIndicator(color: accentColor))
                 : selectedProduct == null
-                ? Center(
-                child: Text("Product not found", style: TextStyle(color: textColor)))
+                ? Center(child: Text("Product not found", style: TextStyle(color: textColor)))
                 : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // PRODUCT IMAGE
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(
-                      selectedProduct!.image,
-                      height: 260,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+              // PRODUCT IMAGE
+              ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                selectedProduct!.image,
+                height: 260,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 25),
+            // NAME + WISHLIST
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    selectedProduct!.name,
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: textColor),
                   ),
-                  const SizedBox(height: 25),
-                  // NAME + WISHLIST
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          selectedProduct!.name,
-                          style: TextStyle(
-                              fontSize: 26, fontWeight: FontWeight.bold, color: textColor),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          wishlistProvider.isInWishlist(selectedProduct!)
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: accentColor,
-                          size: 30,
-                        ),
-                        onPressed: () => wishlistProvider.toggleWishlist(selectedProduct!),
-                      ),
-                    ],
+                ),
+                IconButton(
+                  icon: Icon(
+                    wishlistProvider.isInWishlist(selectedProduct!) ? Icons.favorite : Icons.favorite_border,
+                    color: accentColor,
+                    size: 30,
                   ),
-                  const SizedBox(height: 6),
-                  // PRICE
-                  Text('Rs. ${selectedProduct!.price}',
-                      style: TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.w600, color: accentColor)),
-                  const SizedBox(height: 10),
-                  // PHONE NUMBER
-                  if (phoneNumber.isNotEmpty)
-                    Text('Phone: $phoneNumber', style: TextStyle(fontSize: 16, color: textColor)),
-                  const SizedBox(height: 25),
-                  // DESCRIPTION
-                  Text(selectedProduct!.description,
-                      style: TextStyle(fontSize: 16, color: textColor.withOpacity(0.85))),
-                  const SizedBox(height: 40),
-                  // SIZE SELECTOR
-                  if (selectedProduct!.category != 'other')
-                    Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _sizeButton('A5', accentColor),
-                          const SizedBox(width: 28),
-                          _sizeButton('B5', accentColor),
-                        ],
-                      ),
-                    ),
-                  if (selectedProduct!.category != 'other') const SizedBox(height: 45),
-                  // COLOR SELECTOR
-                  if (selectedProduct!.id.contains('C'))
-                    Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('Colors:',
-                              style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 16)),
-                          const SizedBox(width: 14),
-                          Row(
-                            children: possibleColors.map((c) {
-                              final isSelected =
-                                  selectedProduct!.color.toUpperCase() == c;
-                              return GestureDetector(
-                                onTap: () => switchColor(c),
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  margin: const EdgeInsets.only(right: 12),
-                                  decoration: BoxDecoration(
-                                    color: _colorFromString(c),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: isSelected ? accentColor : Colors.grey, width: 2),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (selectedProduct!.id.contains('C')) const SizedBox(height: 35),
-                  // QUANTITY + ADD TO CART
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  onPressed: () => wishlistProvider.toggleWishlist(selectedProduct!),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // PRICE
+            Text('Rs. ${selectedProduct!.price}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: accentColor)),
+        //     const SizedBox(height: 10),
+        //     // PHONE NUMBER
+        //     if (phoneNumber.isNotEmpty)
+        // Text('Phone: $phoneNumber', style: TextStyle(fontSize: 16, color: textColor)),
+    const SizedBox(height: 25),
+    // DESCRIPTION
+    Text(selectedProduct!.description, style: TextStyle(fontSize: 16, color: textColor.withOpacity(0.85))),
+    const SizedBox(height: 40),
+    // SIZE SELECTOR
+    if (selectedProduct!.category != 'other')
+    Center(
+    child: Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+    _sizeButton('A5', accentColor),
+    const SizedBox(width: 28),
+    _sizeButton('B5', accentColor),
+    ],
+    ),
+    ),
+    if (selectedProduct!.category != 'other') const SizedBox(height: 45),
+    // COLOR SELECTOR
+    if (selectedProduct!.id.contains('C'))
+    Center(
+    child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+    const Text('Colors:', style: TextStyle(fontFamily: 'MontserratSemiBold', fontSize: 16)),
+    const SizedBox(width: 14),
+    Row(
+    children: possibleColors.map((c) {
+    final isSelected = selectedProduct!.color.toUpperCase() == c;
+    return GestureDetector(
+    onTap: () => switchColor(c),
+    child: Container(
+    width: 36,
+    height: 36,
+    margin: const EdgeInsets.only(right: 12),
+    decoration: BoxDecoration(
+    color: _colorFromString(c),
+    shape: BoxShape.circle,
+      border: Border.all(
+        color: isSelected ? accentColor : Colors.transparent,
+        width: 2,
+      ),
+    ),
+    ),
+    );
+    }).toList(),
+    ),
+    ],
+    ),
+    ),
+                    const SizedBox(height: 30),
+                    // QUANTITY + ADD TO CART + SHARE
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(25)),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                  icon: const Icon(Icons.remove),
-                                  onPressed: () => setState(() {
-                                    if (quantity > 1) quantity--;
-                                  })),
-                              Text(quantity.toString(),
-                                  style: TextStyle(fontSize: 18, color: textColor)),
-                              IconButton(
-                                  icon: const Icon(Icons.add),
-                                  onPressed: () => setState(() => quantity++)),
-                            ],
-                          ),
+                        // Quantity selector
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                if (quantity > 1) setState(() => quantity--);
+                              },
+                              icon: const Icon(Icons.remove_circle_outline),
+                              color: accentColor,
+                              iconSize: 28,
+                            ),
+                            Text('$quantity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+                            IconButton(
+                              onPressed: () {
+                                setState(() => quantity++);
+                              },
+                              icon: const Icon(Icons.add_circle_outline),
+                              color: accentColor,
+                              iconSize: 28,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                if (selectedProduct != null)
+                                  cartProvider.addToCart(selectedProduct!, quantity);
+                                QuickAlert.show(
+                                  context: context,
+                                  type: QuickAlertType.success,
+                                  text: 'Added to cart!',
+                                );
+                              },
+                              icon: const Icon(Icons.shopping_cart),
+                              label: const Text('Add to Cart'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: accentColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              onPressed: shareProduct,
+                              icon: const Icon(Icons.share),
+                              label: const Text('Share'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.shade600,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 35),
-                  // ADD TO CART BUTTON
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        cartProvider.addToCart(selectedProduct!, quantity);
-                        QuickAlert.show(
-                          context: context,
-                          type: QuickAlertType.success,
-                          text: '$quantity item(s) added to cart!',
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: accentColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25)),
-                      ),
-                      child: const Text('Add To Cart',
-                          style: TextStyle(
-                              fontFamily: 'MontserratSemiBold', fontSize: 18)),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // SHARE BUTTON
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: shareProduct,
-                      icon: const Icon(Icons.share),
-                      label: const Text('Share this Product', style: TextStyle(fontSize: 16)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 35),
-                  // REVIEW & RATINGS
-                  buildRatingInput(),
-                  const SizedBox(height: 20),
-                  buildReviewsSection(),
-                ],
+                    const SizedBox(height: 40),
+                    // REVIEWS INPUT
+                    buildRatingInput(),
+                    const SizedBox(height: 30),
+                    // REVIEWS LIST
+                    buildReviewsSection(),
+                    const SizedBox(height: 50),
+                  ],
               ),
             ),
-          ),
-        ],
-      ),
+        ),
+            ],
+        ),
     );
   }
 
-  Widget _sizeButton(String label, Color accentColor) {
-    return ElevatedButton(
-      onPressed: () => switchSize(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: accentColor,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.fromLTRB(32, 14, 32, 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+  Widget _sizeButton(String size, Color accentColor) {
+    bool isSelected = (selectedProduct!.id.startsWith('M') && size == 'B5') ||
+        (selectedProduct!.id.startsWith('L') && size == 'A5');
+    return GestureDetector(
+      onTap: () => switchSize(size),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? accentColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accentColor, width: 2),
+        ),
+        child: Text(
+          size,
+          style: TextStyle(
+            color: isSelected ? Colors.white : accentColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
       ),
-      child: Text(label,
-          style: const TextStyle(fontSize: 18, fontFamily: 'MontserratRegular')),
     );
   }
 }
+
+
