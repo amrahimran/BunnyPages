@@ -14,6 +14,10 @@ import '../components/custombar.dart';
 import '../components/bottombar.dart';
 import 'package:project/services/connectivity_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:quickalert/quickalert.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+
 
 class CheckoutPage extends StatefulWidget {
   final List<CartItem> cartItems;
@@ -72,6 +76,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
     prefs.setString("phone", phoneController.text.trim());
   }
 
+  Future<bool> _checkLocationPermission() async {
+    if (await Permission.location.isGranted) {
+      return true;
+    } else {
+      var status = await Permission.location.request();
+      if (status.isGranted) {
+        return true;
+      } else {
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.error,
+          text: 'Location permission is required to auto-fill your address.',
+        );
+        return false;
+      }
+    }
+  }
+
+
   Future<String> getAddressFromCoordinatesWeb(double lat, double lng) async {
     try {
       final url = kIsWeb
@@ -94,23 +117,65 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return "$lat, $lng";
   }
 
+  bool _validateOrder() {
+    // Check phone number
+    if (!RegExp(r'^[0-9]{10}$').hasMatch(phoneController.text.trim())) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "Phone number must be 10 digits.",
+      );
+      return false;
+    }
+
+    // Check address
+    if (addressController.text.trim().isEmpty) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "Address cannot be empty.",
+      );
+      return false;
+    }
+
+    // Check city
+    if (cityController.text.trim().isEmpty) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "City cannot be empty.",
+      );
+      return false;
+    }
+
+    // Check internet
+    if (!_isOnline.value) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: "Cannot place order without internet connection.",
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+
   Future<void> fetchLocation() async {
     setState(() => isFetchingLocation = true);
 
     try {
+      bool hasPermission = await _checkLocationPermission();
+      if (!hasPermission) return;
+
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        print("Location service is disabled");
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        print("Location permission denied");
+        QuickAlert.show(
+          context: context,
+          type: QuickAlertType.warning,
+          text: "Location service is disabled. Please enable it manually.",
+        );
         return;
       }
 
@@ -133,8 +198,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           cityController.text = p.locality ?? "";
         }
       } else {
-        address =
-            await getAddressFromCoordinatesWeb(position.latitude, position.longitude);
+        address = await getAddressFromCoordinatesWeb(position.latitude, position.longitude);
       }
 
       if (address.isEmpty) address = "${position.latitude}, ${position.longitude}";
@@ -151,6 +215,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       setState(() => isFetchingLocation = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -274,8 +339,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 filled: true,
                 fillColor: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
               ),
-              onChanged: (_) => savePhone(),
+              onChanged: (value) {
+                savePhone();
+
+                // Validate phone number
+                if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
+                  // Show error or handle invalid input
+                  print("Invalid phone number");
+                }
+              },
             ),
+
             SizedBox(height: 20),
             Text("Address", style: TextStyle(fontSize: 16, color: textColor)),
             Stack(
@@ -353,17 +427,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
                 child: Text("Place Order", style: TextStyle(fontSize: 18, color: Colors.white)),
                 onPressed: () {
-                  Provider.of<OrderProvider>(context, listen: false).placeOrder(
-                    cartItems: widget.cartItems,
-                    totalPrice: totalPrice,
-                    phone: phoneController.text.trim(),
-                    address: addressController.text.trim(),
-                    city: cityController.text.trim(),
-                    paymentMethod: paymentMethod,
-                    context: context,
-                  );
-                  Provider.of<CartProvider>(context, listen: false).clearCart();
+                  if (_validateOrder()) {
+                    Provider.of<OrderProvider>(context, listen: false).placeOrder(
+                      cartItems: widget.cartItems,
+                      totalPrice: totalPrice,
+                      phone: phoneController.text.trim(),
+                      address: addressController.text.trim(),
+                      city: cityController.text.trim(),
+                      paymentMethod: paymentMethod,
+                      context: context,
+                    );
+                    Provider.of<CartProvider>(context, listen: false).clearCart();
+                  }
                 },
+
               ),
             ),
           ],

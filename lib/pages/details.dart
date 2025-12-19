@@ -396,18 +396,22 @@ class _DetailsPageState extends State<DetailsPage> {
   Future<void> shareProduct() async {
     if (selectedProduct == null) return;
 
+    // Request permission first time
+    final hasPermission = await _requestContactPermission();
+    if (!hasPermission) return;
+
     final contact = await pickContactAndCheckPermission();
     String contactName = contact?.displayName ?? "there";
 
     final message = """
-Hey $contactName, check out this notebook:
-
-${selectedProduct!.name}
-Price: Rs. ${selectedProduct!.price}
-Description: ${selectedProduct!.description}
-
-Download the app to see more and buy: https://127.0.0.1:8000/register
-""";
+  Hey $contactName, check out this notebook:
+  
+  ${selectedProduct!.name}
+  Price: Rs. ${selectedProduct!.price}
+  Description: ${selectedProduct!.description}
+  
+  Download the app to see more and buy: https://127.0.0.1:8000/register
+  """;
 
     try {
       await Share.share(message, subject: "Check out this product!");

@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print, use_build_context_synchronously
+// ignore_for_file: avoid_print, use_build_context_synchronously, unused_local_variable
 
 import 'dart:convert';
 import 'dart:io' show Platform;
@@ -36,12 +36,20 @@ class _SignupState extends State<Signup> {
 
     try {
       var url = Uri.parse('$baseUrl/api/register');
-      var response = await http.post(url, body: {
-        'name': _usernameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'password': _passwordCtrl.text.trim(),
-        'password_confirmation': _confirmPasswordCtrl.text.trim(),
-      });
+      var response = await http.post(
+        Uri.parse('$baseUrl/api/register'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'name': _usernameCtrl.text.trim(),
+          'email': _emailCtrl.text.trim(),
+          'password': _passwordCtrl.text.trim(),
+          'password_confirmation': _confirmPasswordCtrl.text.trim(),
+        },
+      );
+
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         QuickAlert.show(

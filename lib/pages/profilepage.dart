@@ -16,6 +16,8 @@ import 'package:quickalert/quickalert.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:permission_handler/permission_handler.dart';
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -49,6 +51,8 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadSavedImage();
     fetchUserData();
   }
+
+
 
   Future<void> _loadSavedImage() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
