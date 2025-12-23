@@ -7,7 +7,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:quickalert/quickalert.dart';
 import 'package:project/pages/login.dart';
-import 'package:project/services/connectivity_banner.dart'; // <-- ADDED
+import 'package:project/services/connectivity_banner.dart';
+import 'package:permission_handler/permission_handler.dart'; // <-- ADDED
 
 class Signup extends StatefulWidget {
   const Signup({super.key});
@@ -31,11 +32,26 @@ class _SignupState extends State<Signup> {
     return 'http://127.0.0.1:8000';
   }
 
+  // ---------------- PERMISSION REQUEST (ADDED) ----------------
+  Future<void> requestInitialPermissions() async {
+    if (!await Permission.camera.isGranted) {
+      await Permission.camera.request();
+    }
+
+    if (!await Permission.locationWhenInUse.isGranted) {
+      await Permission.locationWhenInUse.request();
+    }
+
+    if (!await Permission.contacts.isGranted) {
+      await Permission.contacts.request();
+    }
+  }
+  // ------------------------------------------------------------
+
   Future<void> registerUser() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     try {
-      var url = Uri.parse('$baseUrl/api/register');
       var response = await http.post(
         Uri.parse('$baseUrl/api/register'),
         headers: {
@@ -50,8 +66,25 @@ class _SignupState extends State<Signup> {
         },
       );
 
-
       if (response.statusCode == 201 || response.statusCode == 200) {
+
+        // -------- PERMISSION EXPLANATION POPUP (ADDED) --------
+        await QuickAlert.show(
+          context: context,
+          type: QuickAlertType.info,
+          title: "Permissions Required",
+          text:
+              "We use these features to improve your experience:\n\n"
+              "📷 Camera – upload images\n"
+              "📍 Location – delivery & services\n"
+              "📇 Contacts – share products\n\n"
+              "You can change permissions later in settings.",
+          confirmBtnText: "Allow",
+        );
+
+        await requestInitialPermissions();
+        // -----------------------------------------------------
+
         QuickAlert.show(
           context: context,
           type: QuickAlertType.success,
@@ -88,12 +121,9 @@ class _SignupState extends State<Signup> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(backgroundColor: Colors.white),
-
       body: Column(
         children: [
-
-          const ConnectivityBanner(), // <-- ONLY ADDITION
-
+          const ConnectivityBanner(),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
