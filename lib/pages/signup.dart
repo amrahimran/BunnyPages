@@ -74,12 +74,12 @@ class _SignupState extends State<Signup> {
           type: QuickAlertType.info,
           title: "Permissions Required",
           text:
-              "We use these features to improve your experience:\n\n"
+          "We use these features to improve your experience:\n\n"
               "📷 Camera – upload images\n"
               "📍 Location – delivery & services\n"
               "📇 Contacts – share products\n\n"
               "You can change permissions later in settings.",
-          confirmBtnText: "Allow",
+          confirmBtnText: "Okay",
         );
 
         await requestInitialPermissions();
@@ -151,7 +151,7 @@ class _SignupState extends State<Signup> {
                         ),
                       ),
                       validator: (value) =>
-                          value == null || value.isEmpty ? 'Username is required' : null,
+                      value == null || value.isEmpty ? 'Username is required' : null,
                     ),
 
                     const SizedBox(height: 16),
