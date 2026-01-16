@@ -11,7 +11,9 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'package:quickalert/quickalert.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+//import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:project/services/connectivity_banner.dart';
@@ -23,8 +25,7 @@ import 'package:sqflite/sqflite.dart';
 //import 'package:path/path.dart';
 import 'package:path/path.dart' as p;
 
-
-// -------------------- RECENTLY VIEWED DB --------------------
+// RECENTLY VIEWED DB
 class RecentlyViewedDB {
   static final RecentlyViewedDB _instance = RecentlyViewedDB._internal();
   factory RecentlyViewedDB() => _instance;
@@ -116,8 +117,10 @@ class _DetailsPageState extends State<DetailsPage> {
   int quantity = 1;
 
   // Firestore for reviews
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late CollectionReference reviewsCollection;
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // late CollectionReference reviewsCollection;
+  final DatabaseReference reviewsRef =
+  FirebaseDatabase.instance.ref('product_reviews');
 
   // Review input
   final TextEditingController _reviewController = TextEditingController();
@@ -144,7 +147,8 @@ class _DetailsPageState extends State<DetailsPage> {
   void initState() {
     super.initState();
     fetchUserData();
-    reviewsCollection = _firestore.collection('product_reviews');
+    //reviewsCollection = _firestore.collection('product_reviews');
+
     fetchProductDetails(widget.productId);
   }
 
@@ -273,6 +277,15 @@ class _DetailsPageState extends State<DetailsPage> {
   }
 
   Future<void> submitReview() async {
+    if (userData == null) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: 'User not loaded. Please try again.',
+      );
+      return;
+    }
+
     if (_rating == 0 || _reviewController.text.trim().isEmpty) {
       QuickAlert.show(
         context: context,
@@ -282,15 +295,15 @@ class _DetailsPageState extends State<DetailsPage> {
       return;
     }
 
-    final userName = userData?['name'] ?? userData?['email'] ?? 'Anonymous';
-    final userId = userData?['id']?.toString() ?? '';
+    final userName = userData!['name'] ?? userData!['email'] ?? 'Anonymous';
+    final userId = userData!['id']?.toString() ?? '';
 
     try {
-      await reviewsCollection.add({
-        'productId': widget.productId, // IMPORTANT: link review to product
+      await reviewsRef.push().set({
+        'productId': widget.productId,
         'rating': _rating,
         'review': _reviewController.text.trim(),
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
         'userId': userId,
         'userName': userName,
       });
@@ -312,8 +325,25 @@ class _DetailsPageState extends State<DetailsPage> {
     }
   }
 
+  Future<void> deleteReview(String reviewKey) async {
+    try {
+      await reviewsRef.child(reviewKey).remove(); // delete from Firebase
+      setState(() {}); // refresh UI immediately
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.success,
+        text: 'Review deleted!',
+      );
+    } catch (e) {
+      QuickAlert.show(
+        context: context,
+        type: QuickAlertType.error,
+        text: 'Failed to delete review: $e',
+      );
+    }
+  }
 
-  // ----------------- SHARE FEATURE -----------------
+  // SHARE FEATURE
   Future<bool> _requestContactPermission() async {
     var status = await Permission.contacts.status;
 
@@ -627,7 +657,7 @@ Download the app to see more and buy: https://127.0.0.1:8000/register
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(product.name, style: TextStyle(fontSize: 14, color: isDarkMode ? Colors.white : Colors.black), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+                      Text(product.name, style: TextStyle(fontSize: 14, color: isDarkMode ? Colors.white : Colors.black), maxLines: 3, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
                       Text('Rs. ${product.price}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF7dadc4))),
                     ],
                   ),
@@ -671,24 +701,56 @@ Download the app to see more and buy: https://127.0.0.1:8000/register
   }
 
   Widget buildReviewsSection() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: reviewsCollection.orderBy('timestamp', descending: true).snapshots(),
+    if (userData == null) return const SizedBox();
+
+    final currentUserId = userData!['id']?.toString() ?? '';
+
+    return StreamBuilder<DatabaseEvent>(
+      stream: reviewsRef.orderByChild('timestamp').onValue,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final reviews = snapshot.data!.docs;
-        if (reviews.isEmpty) return const Text('No reviews yet');
+        if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+          return const Text('No reviews yet');
+        }
+
+        final data = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+
+        final reviews = data.entries
+            .where((e) => e.value['productId'] == widget.productId)
+            .toList()
+          ..sort((a, b) =>
+              (b.value['timestamp'] as int).compareTo(a.value['timestamp'] as int));
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: reviews.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
+          children: reviews.map((entry) {
+            final review = entry.value;
+            final reviewKey = entry.key; // Firebase node key
+            final isCurrentUser = review['userId'] == currentUserId;
+
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 6),
               child: ListTile(
-                title: Text(data['userName'] ?? 'Anonymous'),
-                subtitle: Text(data['review'] ?? ''),
+                title: Text(review['userName'] ?? 'Anonymous'),
+                subtitle: Text(review['review'] ?? ''),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: List.generate(5, (index) => Icon(index < (data['rating'] ?? 0) ? Icons.star : Icons.star_border, color: Colors.amber, size: 18)),
+                  children: [
+                    ...List.generate(
+                      5,
+                          (index) => Icon(
+                        index < (review['rating'] ?? 0)
+                            ? Icons.star
+                            : Icons.star_border,
+                        color: Colors.amber,
+                        size: 18,
+                      ),
+                    ),
+                    if (isCurrentUser)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red, size: 22),
+                        onPressed: () => deleteReview(reviewKey),
+                      ),
+                  ],
                 ),
               ),
             );
@@ -697,4 +759,5 @@ Download the app to see more and buy: https://127.0.0.1:8000/register
       },
     );
   }
+
 }
